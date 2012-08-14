@@ -130,8 +130,8 @@ effect_fire_init(void)
 #else
 	SDL_FillRect(surface, NULL,
 		     SDL_MapRGBA(surface->format,
-		     	     	 colors[0].r, colors[0].g,
-		     	     	 colors[0].b, colors[0].unused));
+				 colors[0].r, colors[0].g,
+				 colors[0].b, colors[0].unused));
 #endif
 
 	return surface;
@@ -279,7 +279,7 @@ effect_blops_update(void)
 
 		next->radius++;
 		if (next->alpha > 10)
-			next->alpha -= 10;
+			next->alpha -= 3;
 		else
 			next->alpha = 0;
 
@@ -330,6 +330,64 @@ effect_bg_change(SDL_Color color)
 	effect_bg_color = color;
 }
 
+static SDL_Color effect_generic_color = {0, 0, 0};
+
+static inline void
+effect_generic_set_color(SDL_Color color)
+{
+	effect_generic_color = color;
+}
+
+static SDL_Color effect_generic_colors[256];
+
+static inline void
+effect_generic_init(void)
+{
+	memset(effect_generic_colors, 0, sizeof(effect_generic_colors));
+
+	for (int i = 0; i < 32; i++) {
+		/* black to blue, 32 values */
+		effect_generic_colors[i].b = i << 1;
+
+		/* blue to red, 32 values */
+		effect_generic_colors[i + 32].r = i << 3;
+		effect_generic_colors[i + 32].b = 64 - (i << 1);
+
+		/*red to yellow, 32 values */
+		effect_generic_colors[i + 64].r = 255;
+		effect_generic_colors[i + 64].g = i << 3;
+
+		/* yellow to white, 162 */
+		effect_generic_colors[i + 96].r = 255;
+		effect_generic_colors[i + 96].g = 255;
+		effect_generic_colors[i + 96].b = i << 2;
+		effect_generic_colors[i + 128].r = 255;
+		effect_generic_colors[i + 128].g = 255;
+		effect_generic_colors[i + 128].b = 64 + (i << 2);
+		effect_generic_colors[i + 160].r = 255;
+		effect_generic_colors[i + 160].g = 255;
+		effect_generic_colors[i + 160].b = 128 + (i << 2);
+		effect_generic_colors[i + 192].r = 255;
+		effect_generic_colors[i + 192].g = 255;
+		effect_generic_colors[i + 192].b = 192 + i;
+		effect_generic_colors[i + 224].r = 255;
+		effect_generic_colors[i + 224].g = 255;
+		effect_generic_colors[i + 224].b = 224 + i;
+	}
+}
+
+static SDL_Color
+effect_generic_get_next_color(void)
+{
+	static int curColor = 0;
+	SDL_Color ret = effect_generic_colors[curColor];
+
+	curColor++;
+	curColor %= NARRAY(effect_generic_colors);
+
+	return ret;
+}
+
 static inline void
 process_events(void)
 {
@@ -351,6 +409,23 @@ process_events(void)
 					break;
 				case SDLK_3:
 					effect_bg_change((SDL_Color){0, 0, 255});
+					break;
+				default:
+					break;
+				}
+			} else if (event.key.keysym.mod & KMOD_LCTRL) {
+				switch (event.key.keysym.sym) {
+				case SDLK_0:
+					effect_generic_set_color((SDL_Color){0, 0, 0});
+					break;
+				case SDLK_1:
+					effect_generic_set_color((SDL_Color){255, 0, 0});
+					break;
+				case SDLK_2:
+					effect_generic_set_color((SDL_Color){0, 255, 0});
+					break;
+				case SDLK_3:
+					effect_generic_set_color((SDL_Color){0, 0, 255});
 					break;
 				default:
 					break;
@@ -398,16 +473,16 @@ process_events(void)
 			if (currentEffect == EFFECT_BLOPS)
 				effect_blops_create(event.button.x, event.button.y,
 						    event.button.button == SDL_BUTTON_LEFT
-						    	? (SDL_Color){0, 0, 255}
-						    	: (SDL_Color){255, 0, 0});
+							? effect_generic_color
+							: effect_generic_get_next_color());
 			break;
 		case SDL_MOUSEMOTION:
 			if ((event.motion.state & (SDL_BUTTON(1) | SDL_BUTTON(3))) &&
 			    currentEffect == EFFECT_BLOPS)
 				effect_blops_create(event.motion.x, event.motion.y,
 						    event.motion.state & SDL_BUTTON(1)
-						    	? (SDL_Color){0, 0, 255}
-						    	: (SDL_Color){255, 0, 0});
+							? effect_generic_color
+							: effect_generic_get_next_color());
 			break;
 
 		case SDL_QUIT:
@@ -444,6 +519,7 @@ main(int argc, char **argv)
 	SDL_initFramerate(&fpsm);
 	SDL_setFramerate(&fpsm, FRAMERATE);
 
+	effect_generic_init();
 	fire_surface = effect_fire_init();
 
 	for (;;) {
@@ -451,9 +527,9 @@ main(int argc, char **argv)
 
 		SDL_FillRect(screen, NULL,
 			     SDL_MapRGB(screen->format,
-			     	     	effect_bg_color.r,
-			     	     	effect_bg_color.g,
-			     	     	effect_bg_color.b));
+					effect_bg_color.r,
+					effect_bg_color.g,
+					effect_bg_color.b));
 
 		if (image_surface != NULL)
 			SDL_BlitSurface(image_surface, NULL, screen, NULL);
