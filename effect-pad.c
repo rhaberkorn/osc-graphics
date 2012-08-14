@@ -1,7 +1,9 @@
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include <SDL.h>
+#include <SDL_image.h>
 
 #define NARRAY(ARRAY) \
 	(sizeof(ARRAY) / sizeof(ARRAY[0]))
@@ -19,6 +21,11 @@
 #define SDL_ERROR(FMT, ...) do {					\
 	fprintf(stderr, "%s(%d): " FMT ": %s\n",			\
 		__FILE__, __LINE__, ##__VA_ARGS__, SDL_GetError());	\
+} while (0)
+
+#define SDL_IMAGE_ERROR(FMT, ...) do {					\
+	fprintf(stderr, "%s(%d): " FMT ": %s\n",			\
+		__FILE__, __LINE__, ##__VA_ARGS__, IMG_GetError());	\
 } while (0)
 
 #define SCREEN_WIDTH	640
@@ -166,6 +173,7 @@ int
 main(int argc, char **argv)
 {
 	SDL_Surface *fire_surface;
+	SDL_Surface *image_surface;
 
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		SDL_ERROR("SDL_Init");
@@ -182,6 +190,13 @@ main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+	image_surface = IMG_Load("image_1.jpg");
+	if (image_surface == NULL) {
+		SDL_IMAGE_ERROR("IMG_Load");
+		return EXIT_FAILURE;
+	}
+	assert(image_surface->w == screen->w && image_surface->h == screen->h);
+
 	fire_surface = effect_fire_init();
 
 	for (;;) {
@@ -190,11 +205,13 @@ main(int argc, char **argv)
 		SDL_FillRect(screen, NULL,
 			     SDL_MapRGB(screen->format, 0, 0, 0));
 
+		SDL_BlitSurface(image_surface, NULL, screen, NULL);
+
 		effect_fire_update(fire_surface);
 		SDL_BlitSurface(fire_surface, NULL, screen, NULL);
 
 		SDL_Flip(screen);
-		SDL_Delay(50);
+		SDL_Delay(1000/20);
 	}
 
 	/* never reached */
