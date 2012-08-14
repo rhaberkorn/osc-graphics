@@ -9,6 +9,8 @@
 #include <SDL_rotozoom.h>
 #include <SDL_gfxPrimitives.h>
 
+#include <vlc/vlc.h>
+
 //#define EFFECT_FIRE_COLORKEYED
 
 #define NARRAY(ARRAY) \
@@ -322,6 +324,85 @@ effect_image_change(const char *file)
 	}
 }
 
+static struct EffectVideoCtx {
+	libvlc_instance_t *vlcinst;
+	libvlc_media_player_t *mp;
+
+	SDL_Surface *surf;
+	SDL_mutex *mutex;
+} effect_video_ctx;
+
+static void *
+effect_video_lock(void *data, void **p_pixels)
+{
+	struct EffectVideoCtx *ctx = data;
+
+	SDL_LockMutex(ctx->mutex);
+	SDL_LockSurface(ctx->surf);
+	*p_pixels = ctx->surf->pixels;
+
+	return NULL; /* picture identifier, not needed here */
+}
+
+static void
+effect_video_unlock(void *data, void *id, void *const *p_pixels)
+{
+    struct EffectVideoCtx *ctx = data;
+
+    SDL_UnlockSurface(ctx->surf);
+    SDL_UnlockMutex(ctx->mutex);
+
+    assert(id == NULL); /* picture identifier, not needed here */
+}
+
+static void
+effect_video_display(void *data __attribute__((unused)), void *id)
+{
+	/* VLC wants to display the video */
+	assert(id == NULL);
+}
+
+static inline void
+effect_video_init(void)
+{
+	char const *vlc_argv[] = {
+		"--no-audio", /* skip any audio track */
+		"--no-xlib", /* tell VLC to not use Xlib */
+	};
+
+	effect_video_ctx.surf = SDL_CreateRGBSurface(SDL_SWSURFACE, screen->w, screen->h,
+						     16, 0x001f, 0x07e0, 0xf800, 0);
+	effect_video_ctx.mutex = SDL_CreateMutex();
+
+	effect_video_ctx.vlcinst = libvlc_new(NARRAY(vlc_argv), vlc_argv);
+}
+
+static void
+effect_video_change(const char *file)
+{
+	libvlc_media_t *m;
+
+	if (file == NULL) {
+		if (effect_video_ctx.mp != NULL)
+			libvlc_media_player_release(effect_video_ctx.mp);
+		effect_video_ctx.mp = NULL;
+		return;
+	}
+
+	m = libvlc_media_new_location(effect_video_ctx.vlcinst, file);
+	effect_video_ctx.mp = libvlc_media_player_new_from_media(m);
+	libvlc_media_release(m);
+
+	libvlc_video_set_callbacks(effect_video_ctx.mp,
+				   effect_video_lock, effect_video_unlock, effect_video_display,
+				   &effect_video_ctx);
+	libvlc_video_set_format(effect_video_ctx.mp, "RV16",
+				effect_video_ctx.surf->w,
+				effect_video_ctx.surf->h,
+				effect_video_ctx.surf->w*2);
+	libvlc_media_player_play(effect_video_ctx.mp);
+}
+
 static SDL_Color effect_bg_color = {0, 0, 0};
 
 static inline void
@@ -455,6 +536,13 @@ process_events(void)
 				case SDLK_2:
 					effect_image_change("image_2.png");
 					break;
+				case SDLK_3:
+					effect_video_change("v4l2://");
+					break;
+				case SDLK_4:
+					effect_video_change("/mnt/data/movies/Godzilla.-.1967.-.Frankenstein.jagt.Godzillas.Sohn.KHPP.avi");
+					break;
+
 
 				case SDLK_f:
 					currentEffect = EFFECT_FIRE;
@@ -520,6 +608,7 @@ main(int argc, char **argv)
 	SDL_setFramerate(&fpsm, FRAMERATE);
 
 	effect_generic_init();
+	effect_video_init();
 	fire_surface = effect_fire_init();
 
 	for (;;) {
@@ -530,6 +619,12 @@ main(int argc, char **argv)
 					effect_bg_color.r,
 					effect_bg_color.g,
 					effect_bg_color.b));
+
+		if (effect_video_ctx.mp != NULL) {
+			SDL_LockMutex(effect_video_ctx.mutex);
+			SDL_BlitSurface(effect_video_ctx.surf, NULL, screen, NULL);
+			SDL_UnlockMutex(effect_video_ctx.mutex);
+		}
 
 		if (image_surface != NULL)
 			SDL_BlitSurface(image_surface, NULL, screen, NULL);
