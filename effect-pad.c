@@ -7,6 +7,7 @@
 #include <SDL_image.h>
 #include <SDL_framerate.h>
 #include <SDL_rotozoom.h>
+#include <SDL_gfxPrimitives.h>
 
 //#define EFFECT_FIRE_COLORKEYED
 
@@ -38,6 +39,12 @@
 #define FRAMERATE	20 /* Hz */
 
 static SDL_Surface *screen;
+
+enum Effects {
+	EFFECT_FIRE,
+	EFFECT_BLOPS
+};
+static enum Effects currentEffect = EFFECT_FIRE;
 
 static SDL_Color colors[256];
 
@@ -180,7 +187,8 @@ effect_fire_update(SDL_Surface *surface)
 
 	SDL_MAYBE_LOCK(surface);
 
-	if (SDL_GetMouseState(&mouse_x, &mouse_y) & SDL_BUTTON(1))
+	if (currentEffect == EFFECT_FIRE &&
+	    (SDL_GetMouseState(&mouse_x, &mouse_y) & SDL_BUTTON(1)))
 		effect_fire_set_color(surface, mouse_x, mouse_y,
 				      (float)rand()/RAND_MAX > .3 ? 255 : 0);
 
@@ -220,6 +228,69 @@ effect_fire_update(SDL_Surface *surface)
 	SDL_MAYBE_UNLOCK(surface);
 }
 
+struct EffectBlop {
+	struct EffectBlop *next;
+
+	Sint16		x;
+	Sint16		y;
+	Sint16		radius;
+
+	SDL_Color	color;
+	Uint8		alpha;
+};
+static struct EffectBlop effect_blops_list = {NULL};
+
+static void
+effect_blops_create(Uint16 x, Uint16 y, SDL_Color color)
+{
+	struct EffectBlop *tail = &effect_blops_list;
+
+	while (tail->next != NULL)
+		tail = tail->next;
+
+	tail->next = malloc(sizeof(struct EffectBlop));
+	tail = tail->next;
+
+	tail->next = NULL;
+	tail->x = (Sint16)x;
+	tail->y = (Sint16)y;
+	tail->radius = 1;
+	tail->color = color;
+	tail->alpha = SDL_ALPHA_OPAQUE;
+}
+
+static inline void
+effect_blops_update(void)
+{
+	struct EffectBlop *next;
+
+	for (struct EffectBlop *cur = &effect_blops_list;
+	     cur != NULL && cur->next != NULL;
+	     cur = next) {
+		next = cur->next;
+
+		filledCircleRGBA(screen, next->x, next->y, next->radius,
+				 next->color.r, next->color.g,
+				 next->color.b, next->alpha);
+		if (next->radius > 1)
+			aacircleRGBA(screen, next->x, next->y, next->radius,
+				     next->color.r, next->color.g,
+				     next->color.b, next->alpha);
+
+		next->radius++;
+		if (next->alpha > 10)
+			next->alpha -= 10;
+		else
+			next->alpha = 0;
+
+		if (next->alpha == SDL_ALPHA_TRANSPARENT) {
+			cur->next = next->next;
+			free(next);
+			next = cur;
+		}
+	}
+}
+
 static inline void
 process_events(void)
 {
@@ -229,7 +300,7 @@ process_events(void)
 		switch (event.type) {
 		case SDL_KEYDOWN:
 			switch (event.key.keysym.sym) {
-			case SDLK_f:
+			case SDLK_F11:
 				if (!SDL_WM_ToggleFullScreen(screen)) {
 					SDL_ERROR("SDL_WM_ToggleFullScreen");
 					exit(EXIT_FAILURE);
@@ -243,9 +314,32 @@ process_events(void)
 			case SDLK_ESCAPE:
 				exit(EXIT_SUCCESS);
 
+			case SDLK_f:
+				currentEffect = EFFECT_FIRE;
+				break;
+			case SDLK_b:
+				currentEffect = EFFECT_BLOPS;
+				break;
+
 			default:
 				break;
 			}
+			break;
+
+		case SDL_MOUSEBUTTONDOWN:
+			if (currentEffect == EFFECT_BLOPS)
+				effect_blops_create(event.button.x, event.button.y,
+						    event.button.button == SDL_BUTTON_LEFT
+						    	? (SDL_Color){0, 0, 255}
+						    	: (SDL_Color){255, 0, 0});
+			break;
+		case SDL_MOUSEMOTION:
+			if ((event.motion.state & (SDL_BUTTON(1) | SDL_BUTTON(3))) &&
+			    currentEffect == EFFECT_BLOPS)
+				effect_blops_create(event.motion.x, event.motion.y,
+						    event.motion.state & SDL_BUTTON(1)
+						    	? (SDL_Color){0, 0, 255}
+						    	: (SDL_Color){255, 0, 0});
 			break;
 
 		case SDL_QUIT:
@@ -312,6 +406,8 @@ main(int argc, char **argv)
 
 		effect_fire_update(fire_surface);
 		SDL_BlitSurface(fire_surface, NULL, screen, NULL);
+
+		effect_blops_update();
 
 		SDL_Flip(screen);
 		SDL_framerateDelay(&fpsm);
