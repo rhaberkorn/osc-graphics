@@ -291,6 +291,45 @@ effect_blops_update(void)
 	}
 }
 
+static SDL_Surface *image_surface = NULL;
+
+static void
+effect_image_change(const char *file)
+{
+	if (image_surface != NULL)
+		SDL_FreeSurface(image_surface);
+
+	if (file == NULL) {
+		image_surface = NULL;
+		return;
+	}
+
+	image_surface = IMG_Load(file);
+	if (image_surface == NULL) {
+		SDL_IMAGE_ERROR("IMG_Load");
+		exit(EXIT_FAILURE);
+	}
+
+	if (image_surface->w != screen->w || image_surface->h != screen->h) {
+		SDL_Surface *new;
+
+		new = zoomSurface(image_surface,
+				  (double)screen->w/image_surface->w,
+				  (double)screen->h/image_surface->h,
+				  SMOOTHING_ON);
+		SDL_FreeSurface(image_surface);
+		image_surface = new;
+	}
+}
+
+static SDL_Color effect_bg_color = {0, 0, 0};
+
+static inline void
+effect_bg_change(SDL_Color color)
+{
+	effect_bg_color = color;
+}
+
 static inline void
 process_events(void)
 {
@@ -299,30 +338,59 @@ process_events(void)
 	while (SDL_PollEvent(&event)) {
 		switch (event.type) {
 		case SDL_KEYDOWN:
-			switch (event.key.keysym.sym) {
-			case SDLK_F11:
-				if (!SDL_WM_ToggleFullScreen(screen)) {
-					SDL_ERROR("SDL_WM_ToggleFullScreen");
-					exit(EXIT_FAILURE);
+			if (event.key.keysym.mod & KMOD_LALT) {
+				switch (event.key.keysym.sym) {
+				case SDLK_0:
+					effect_bg_change((SDL_Color){0, 0, 0});
+					break;
+				case SDLK_1:
+					effect_bg_change((SDL_Color){255, 0, 0});
+					break;
+				case SDLK_2:
+					effect_bg_change((SDL_Color){0, 255, 0});
+					break;
+				case SDLK_3:
+					effect_bg_change((SDL_Color){0, 0, 255});
+					break;
+				default:
+					break;
 				}
-				break;
+			} else {
+				switch (event.key.keysym.sym) {
+				case SDLK_F11:
+					if (!SDL_WM_ToggleFullScreen(screen)) {
+						SDL_ERROR("SDL_WM_ToggleFullScreen");
+						exit(EXIT_FAILURE);
+					}
+					break;
 
-			case SDLK_m:
-				SDL_ShowCursor(!SDL_ShowCursor(SDL_QUERY));
-				break;
+				case SDLK_F10:
+					SDL_ShowCursor(!SDL_ShowCursor(SDL_QUERY));
+					break;
 
-			case SDLK_ESCAPE:
-				exit(EXIT_SUCCESS);
+				case SDLK_ESCAPE:
+					exit(EXIT_SUCCESS);
 
-			case SDLK_f:
-				currentEffect = EFFECT_FIRE;
-				break;
-			case SDLK_b:
-				currentEffect = EFFECT_BLOPS;
-				break;
+				case SDLK_0:
+					effect_image_change(NULL);
+					break;
+				case SDLK_1:
+					effect_image_change("image_1.jpg");
+					break;
+				case SDLK_2:
+					effect_image_change("image_2.png");
+					break;
 
-			default:
-				break;
+				case SDLK_f:
+					currentEffect = EFFECT_FIRE;
+					break;
+				case SDLK_b:
+					currentEffect = EFFECT_BLOPS;
+					break;
+
+				default:
+					break;
+				}
 			}
 			break;
 
@@ -357,7 +425,6 @@ main(int argc, char **argv)
 	FPSmanager	fpsm;
 
 	SDL_Surface	*fire_surface;
-	SDL_Surface	*image_surface;
 
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		SDL_ERROR("SDL_Init");
@@ -377,32 +444,19 @@ main(int argc, char **argv)
 	SDL_initFramerate(&fpsm);
 	SDL_setFramerate(&fpsm, FRAMERATE);
 
-	image_surface = IMG_Load("image_1.jpg");
-	if (image_surface == NULL) {
-		SDL_IMAGE_ERROR("IMG_Load");
-		return EXIT_FAILURE;
-	}
-
-	if (image_surface->w != screen->w || image_surface->h != screen->h) {
-		SDL_Surface *new;
-
-		new = zoomSurface(image_surface,
-				  (double)screen->w/image_surface->w,
-				  (double)screen->h/image_surface->h,
-				  SMOOTHING_ON);
-		SDL_FreeSurface(image_surface);
-		image_surface = new;
-	}
-
 	fire_surface = effect_fire_init();
 
 	for (;;) {
 		process_events();
 
 		SDL_FillRect(screen, NULL,
-			     SDL_MapRGB(screen->format, 0, 0, 0));
+			     SDL_MapRGB(screen->format,
+			     	     	effect_bg_color.r,
+			     	     	effect_bg_color.g,
+			     	     	effect_bg_color.b));
 
-		SDL_BlitSurface(image_surface, NULL, screen, NULL);
+		if (image_surface != NULL)
+			SDL_BlitSurface(image_surface, NULL, screen, NULL);
 
 		effect_fire_update(fire_surface);
 		SDL_BlitSurface(fire_surface, NULL, screen, NULL);
