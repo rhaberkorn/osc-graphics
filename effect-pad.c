@@ -378,16 +378,24 @@ effect_video_init(void)
 }
 
 static void
-effect_video_change(const char *file)
+effect_video_change(const char *file, SDL_Color *key)
 {
 	libvlc_media_t *m;
 
+	if (effect_video_ctx.mp != NULL)
+		libvlc_media_player_release(effect_video_ctx.mp);
+
 	if (file == NULL) {
-		if (effect_video_ctx.mp != NULL)
-			libvlc_media_player_release(effect_video_ctx.mp);
 		effect_video_ctx.mp = NULL;
 		return;
 	}
+
+	if (key == NULL)
+		SDL_SetColorKey(effect_video_ctx.surf, 0, 0);
+	else
+		SDL_SetColorKey(effect_video_ctx.surf, SDL_SRCCOLORKEY,
+				SDL_MapRGB(effect_video_ctx.surf->format,
+					   key->r, key->g, key->b));
 
 	m = libvlc_media_new_location(effect_video_ctx.vlcinst, file);
 	effect_video_ctx.mp = libvlc_media_player_new_from_media(m);
@@ -511,6 +519,21 @@ process_events(void)
 				default:
 					break;
 				}
+			} else if (event.key.keysym.mod & KMOD_RCTRL) {
+				switch (event.key.keysym.sym) {
+				case SDLK_0:
+					effect_video_change(NULL, NULL);
+					break;
+				case SDLK_1:
+					effect_video_change("v4l2://", &(SDL_Color){0, 0, 0});
+					break;
+				case SDLK_2:
+					effect_video_change("/mnt/data/movies/Godzilla.-.1967.-.Frankenstein.jagt.Godzillas.Sohn.KHPP.avi",
+							    &(SDL_Color){255, 255, 255});
+					break;
+				default:
+					break;
+				}
 			} else {
 				switch (event.key.keysym.sym) {
 				case SDLK_F11:
@@ -536,13 +559,6 @@ process_events(void)
 				case SDLK_2:
 					effect_image_change("image_2.png");
 					break;
-				case SDLK_3:
-					effect_video_change("v4l2://");
-					break;
-				case SDLK_4:
-					effect_video_change("/mnt/data/movies/Godzilla.-.1967.-.Frankenstein.jagt.Godzillas.Sohn.KHPP.avi");
-					break;
-
 
 				case SDLK_f:
 					currentEffect = EFFECT_FIRE;
