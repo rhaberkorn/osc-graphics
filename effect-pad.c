@@ -6,6 +6,7 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_framerate.h>
+#include <SDL_rotozoom.h>
 
 //#define EFFECT_FIRE_COLORKEYED
 
@@ -287,7 +288,17 @@ main(int argc, char **argv)
 		SDL_IMAGE_ERROR("IMG_Load");
 		return EXIT_FAILURE;
 	}
-	assert(image_surface->w == screen->w && image_surface->h == screen->h);
+
+	if (image_surface->w != screen->w || image_surface->h != screen->h) {
+		SDL_Surface *new;
+
+		new = zoomSurface(image_surface,
+				  (double)screen->w/image_surface->w,
+				  (double)screen->h/image_surface->h,
+				  SMOOTHING_ON);
+		SDL_FreeSurface(image_surface);
+		image_surface = new;
+	}
 
 	fire_surface = effect_fire_init();
 
