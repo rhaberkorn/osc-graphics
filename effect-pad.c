@@ -5,6 +5,7 @@
 
 #include <SDL.h>
 #include <SDL_image.h>
+#include <SDL_framerate.h>
 
 //#define EFFECT_FIRE_COLORKEYED
 
@@ -33,6 +34,7 @@
 
 #define SCREEN_WIDTH	640
 #define SCREEN_HEIGHT	480
+#define FRAMERATE	20 /* Hz */
 
 static SDL_Surface *screen;
 
@@ -257,8 +259,10 @@ process_events(void)
 int
 main(int argc, char **argv)
 {
-	SDL_Surface *fire_surface;
-	SDL_Surface *image_surface;
+	FPSmanager	fpsm;
+
+	SDL_Surface	*fire_surface;
+	SDL_Surface	*image_surface;
 
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		SDL_ERROR("SDL_Init");
@@ -274,6 +278,9 @@ main(int argc, char **argv)
 		SDL_ERROR("SDL_SetVideoMode");
 		return EXIT_FAILURE;
 	}
+
+	SDL_initFramerate(&fpsm);
+	SDL_setFramerate(&fpsm, FRAMERATE);
 
 	image_surface = IMG_Load("image_1.jpg");
 	if (image_surface == NULL) {
@@ -296,7 +303,7 @@ main(int argc, char **argv)
 		SDL_BlitSurface(fire_surface, NULL, screen, NULL);
 
 		SDL_Flip(screen);
-		SDL_Delay(1000/20);
+		SDL_framerateDelay(&fpsm);
 	}
 
 	/* never reached */
