@@ -44,7 +44,8 @@ static SDL_Surface *screen;
 
 enum Effects {
 	EFFECT_FIRE,
-	EFFECT_BLOPS
+	EFFECT_BLOPS,
+	EFFECT_ERASOR
 };
 static enum Effects currentEffect = EFFECT_FIRE;
 
@@ -411,6 +412,63 @@ effect_video_change(const char *file, SDL_Color *key)
 	libvlc_media_player_play(effect_video_ctx.mp);
 }
 
+static SDL_Surface *effect_erasor_surface, *effect_erasor_applysurf;
+
+static inline void
+effect_erasor_init(void)
+{
+	effect_erasor_surface = SDL_CreateRGBSurface(SDL_SWSURFACE | SDL_SRCALPHA,
+						     screen->w, screen->h, 16,
+						     0x0003, 0x000C, 0x0030, 0xFF00);
+
+	effect_erasor_applysurf = SDL_CreateRGBSurface(SDL_HWSURFACE | SDL_SRCALPHA,
+						       screen->w, screen->h, 32,
+						       0x000000FF, 0x0000FF00,
+						       0x00FF0000, 0xFF000000);
+}
+
+static inline void
+effect_erasor_draw(int x, int y, Uint8 intensity)
+{
+	filledCircleRGBA(effect_erasor_surface, x, y, 5,
+			 0, 0, 0, intensity);
+
+}
+
+static void
+effect_erasor_apply(void)
+{
+	SDL_MAYBE_LOCK(effect_erasor_surface);
+	SDL_MAYBE_LOCK(effect_erasor_applysurf);
+
+	for (int i = 0; i < effect_erasor_surface->w*effect_erasor_surface->h; i++) {
+		Uint8 erasor_alpha;
+		SDL_Color dst_color;
+
+		SDL_GetRGBA(((Uint16 *)effect_erasor_surface->pixels)[i],
+			    effect_erasor_surface->format,
+			    &dst_color.r, &dst_color.g,
+			    &dst_color.b, &erasor_alpha);
+		SDL_GetRGBA(((Uint32 *)effect_erasor_applysurf->pixels)[i],
+			    effect_erasor_applysurf->format,
+			    &dst_color.r, &dst_color.g,
+			    &dst_color.b, &dst_color.unused);
+
+		if (dst_color.unused > erasor_alpha)
+			dst_color.unused -= erasor_alpha;
+		else
+			dst_color.unused = 0;
+
+		((Uint32 *)effect_erasor_applysurf->pixels)[i] =
+			SDL_MapRGBA(effect_erasor_applysurf->format,
+				    dst_color.r, dst_color.g,
+				    dst_color.b, dst_color.unused);
+	}
+
+	SDL_MAYBE_UNLOCK(effect_erasor_applysurf);
+	SDL_MAYBE_UNLOCK(effect_erasor_surface);
+}
+
 static SDL_Color effect_bg_color = {0, 0, 0};
 
 static inline void
@@ -566,6 +624,9 @@ process_events(void)
 				case SDLK_b:
 					currentEffect = EFFECT_BLOPS;
 					break;
+				case SDLK_e:
+					currentEffect = EFFECT_ERASOR;
+					break;
 
 				default:
 					break;
@@ -574,19 +635,37 @@ process_events(void)
 			break;
 
 		case SDL_MOUSEBUTTONDOWN:
-			if (currentEffect == EFFECT_BLOPS)
+			switch (currentEffect) {
+			case EFFECT_BLOPS:
 				effect_blops_create(event.button.x, event.button.y,
 						    event.button.button == SDL_BUTTON_LEFT
 							? effect_generic_color
 							: effect_generic_get_next_color());
+				break;
+			case EFFECT_ERASOR:
+				effect_erasor_draw(event.button.x, event.button.y, 128);
+				break;
+			default:
+				break;
+			}
 			break;
+
 		case SDL_MOUSEMOTION:
-			if ((event.motion.state & (SDL_BUTTON(1) | SDL_BUTTON(3))) &&
-			    currentEffect == EFFECT_BLOPS)
-				effect_blops_create(event.motion.x, event.motion.y,
-						    event.motion.state & SDL_BUTTON(1)
-							? effect_generic_color
-							: effect_generic_get_next_color());
+			switch (currentEffect) {
+			case EFFECT_BLOPS:
+				if (event.motion.state & (SDL_BUTTON(1) | SDL_BUTTON(3)))
+					effect_blops_create(event.motion.x, event.motion.y,
+							    event.motion.state & SDL_BUTTON(1)
+								? effect_generic_color
+								: effect_generic_get_next_color());
+				break;
+			case EFFECT_ERASOR:
+				if (event.motion.state & SDL_BUTTON(1))
+					effect_erasor_draw(event.motion.x, event.motion.y, 128);
+				break;
+			default:
+				break;
+			}
 			break;
 
 		case SDL_QUIT:
@@ -626,6 +705,7 @@ main(int argc, char **argv)
 	effect_generic_init();
 	effect_video_init();
 	fire_surface = effect_fire_init();
+	effect_erasor_init();
 
 	for (;;) {
 		process_events();
@@ -642,8 +722,20 @@ main(int argc, char **argv)
 			SDL_UnlockMutex(effect_video_ctx.mutex);
 		}
 
-		if (image_surface != NULL)
+		if (image_surface != NULL) {
+#if 0
+			SDL_FillRect(effect_erasor_applysurf, NULL,
+				     SDL_MapRGBA(effect_erasor_applysurf->format,
+						 0, 0, 0, SDL_ALPHA_OPAQUE));
+#endif
+
 			SDL_BlitSurface(image_surface, NULL, screen, NULL);
+
+#if 0
+			effect_erasor_apply();
+			SDL_BlitSurface(effect_erasor_applysurf, NULL, screen, NULL);
+#endif
+		}
 
 		effect_fire_update(fire_surface);
 		SDL_BlitSurface(fire_surface, NULL, screen, NULL);
