@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <stdint.h>
 #include <assert.h>
 
 #include <SDL.h>
@@ -10,6 +11,8 @@
 #include <SDL_gfxPrimitives.h>
 
 #include <vlc/vlc.h>
+
+#include <lo/lo.h>
 
 #define NARRAY(ARRAY) \
 	(sizeof(ARRAY) / sizeof((ARRAY)[0]))
@@ -38,7 +41,59 @@
 #define SCREEN_HEIGHT	480
 #define FRAMERATE	20 /* Hz */
 
+static inline void effect_bg_change(SDL_Color color);
+
 static SDL_Surface *screen;
+
+static void
+osc_error(int num, const char *msg, const char *path)
+{
+    printf("liblo server error %d in path %s: %s\n", num, path, msg);
+}
+
+/* catch any incoming messages and display them. returning 1 means that the
+ * message has not been fully handled and the server should try other methods */
+static int
+osc_generic_handler(const char *path, const char *types, lo_arg **argv,
+		    int argc, void *data,
+		    void *user_data __attribute__((unused)))
+{
+    int i;
+
+    printf("path: <%s>\n", path);
+    for (i=0; i<argc; i++) {
+	printf("arg %d '%c' ", i, types[i]);
+	lo_arg_pp(types[i], argv[i]);
+	printf("\n");
+    }
+    printf("\n");
+
+    return 1;
+}
+
+static int
+osc_bg_change(const char *path, const char *types, lo_arg **argv,
+	      int argc, void *data,
+	      void *user_data __attribute__((unused)))
+{
+	effect_bg_change((SDL_Color){(Uint8)argv[0]->i, (Uint8)argv[1]->i, (Uint8)argv[2]->i});
+	return 0;
+}
+
+static inline int
+osc_init(const char *port)
+{
+	lo_server_thread st = lo_server_thread_new(port, osc_error);
+
+	lo_server_thread_add_method(st, NULL, NULL, osc_generic_handler, NULL);
+
+	lo_server_thread_add_method(st, "/background/color", "iii",
+				    osc_bg_change, NULL);
+
+	lo_server_thread_start(st);
+
+	return 0;
+}
 
 static SDL_Surface *image_surface = NULL;
 
@@ -250,7 +305,10 @@ process_events(void)
 int
 main(int argc, char **argv)
 {
-	FPSmanager	fpsm;
+	FPSmanager fpsm;
+
+	if (osc_init("7770"))
+		return EXIT_FAILURE;
 
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		SDL_ERROR("SDL_Init");
