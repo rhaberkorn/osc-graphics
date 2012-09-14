@@ -18,10 +18,10 @@ CFLAGS := -std=c99 -Wall -g -O0 \
 LDFLAGS := $(SDL_LDFLAGS) $(SDL_IMAGE_LDFLAGS) $(SDL_GFX_LDFLAGS) \
 	   $(LIBVLC_LDFLAGS)
 
-all : effect-pad
+all : osc-graphics
 
-effect-pad : effect-pad.o
+osc-graphics : main.o
 	$(CC) $(LDFLAGS) $^ -o $@
 
 clean:
-	$(RM) *.o effect-pad{,.exe}
+	$(RM) *.o osc-graphics{,.exe}
