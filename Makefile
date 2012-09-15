@@ -18,7 +18,8 @@ LIBLO_LDFLAGS := $(shell pkg-config liblo --libs)
 CFLAGS := -std=c99 -Wall -g -O0 \
 	  $(SDL_CFLAGS) $(SDL_IMAGE_CFLAGS) $(SDL_GFX_CFLAGS) \
 	  $(LIBVLC_CFLAGS) $(LIBLO_CFLAGS)
-LDFLAGS := $(SDL_LDFLAGS) $(SDL_IMAGE_LDFLAGS) $(SDL_GFX_LDFLAGS) \
+LDFLAGS := -lm \
+	   $(SDL_LDFLAGS) $(SDL_IMAGE_LDFLAGS) $(SDL_GFX_LDFLAGS) \
 	   $(LIBVLC_LDFLAGS) $(LIBLO_LDFLAGS)
 
 all : osc-graphics

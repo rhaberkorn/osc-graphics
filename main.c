@@ -3,6 +3,7 @@
 #include <string.h>
 #include <stdint.h>
 #include <assert.h>
+#include <math.h>
 
 #include <SDL.h>
 #include <SDL_image.h>
@@ -59,12 +60,14 @@ static int layer_delete_by_name(const char *name);
 
 static struct layer_image *layer_image_new(const char *file);
 static void layer_image_change(struct layer_image *ctx, const char *file);
+static void layer_image_alpha(struct layer_image *ctx, float opacity);
 static void layer_image_frame_cb(void *data, SDL_Surface *target);
 static void layer_image_free_cb(void *data);
 
 static struct layer_video *layer_video_new(const char *file, SDL_Color *key);
 static void layer_video_change(struct layer_video *ctx,
 			       const char *file, SDL_Color *key);
+static void layer_video_alpha(struct layer_video *ctx, float opacity);
 static void layer_video_frame_cb(void *data, SDL_Surface *target);
 static void layer_video_free_cb(void *data);
 
@@ -102,31 +105,70 @@ osc_generic_handler(const char *path, const char *types, lo_arg **argv,
     return 1;
 }
 
+static inline char *
+get_layer_name_from_path(const char *path)
+{
+	/* path is /layer/[name]/... */
+	char *name = strdup(path + 7);
+	*strchr(name, '/') = '\0';
+
+	return name;
+}
+
 static int
 osc_layer_delete(const char *path, const char *types, lo_arg **argv,
 		 int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
+	char *name;
 
-	/* path is /layer/[name]/delete */
-	char *name = strdup(path + 7);
-	*strchr(name, '/') = '\0';
-
+	name = get_layer_name_from_path(path);
 	layer_delete_by_name(name);
 	free(name);
 
 	lo_server_del_method(server, path, types);
 
-	return 0;
+	return 1;
 }
 
 static inline void
-osc_add_layer_delete(lo_server server, const char *name)
+osc_add_layer_delete(lo_server server, const char *name,
+		     lo_method_handler custom_delete)
 {
 	char path[255];
 
 	snprintf(path, sizeof(path), "/layer/%s/delete", name);
+
+	if (custom_delete)
+		lo_server_add_method(server, path, "", custom_delete, server);
 	lo_server_add_method(server, path, "", osc_layer_delete, server);
+}
+
+static int
+osc_image_alpha(const char *path, const char *types, lo_arg **argv,
+	        int argc, void *data, void *user_data)
+{
+	struct layer_image *ctx = user_data;
+
+	layer_image_alpha(ctx, argv[0]->f);
+	return 0;
+}
+
+static int
+osc_image_delete(const char *path, const char *types, lo_arg **argv,
+		 int argc, void *data, void *user_data)
+{
+	lo_server server = user_data;
+	char buf[255], *name;
+
+	name = get_layer_name_from_path(path);
+	snprintf(buf, sizeof(buf), "/layer/%s/alpha", name);
+	lo_server_del_method(server, buf, "f");
+	free(name);
+
+	lo_server_del_method(server, path, types);
+
+	return 1;
 }
 
 static int
@@ -134,15 +176,45 @@ osc_image_new(const char *path, const char *types, lo_arg **argv,
 	      int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
+	char buf[255];
 	struct layer_image *ctx = layer_image_new(&argv[2]->s);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_image_frame_cb, layer_image_free_cb))
 		return 0;
 
-	osc_add_layer_delete(server, &argv[1]->s);
+	snprintf(buf, sizeof(buf), "/layer/%s/alpha", &argv[1]->s);
+	lo_server_add_method(server, buf, "f", osc_image_alpha, ctx);
+	osc_add_layer_delete(server, &argv[1]->s, osc_image_delete);
 
 	return 0;
+}
+
+static int
+osc_video_alpha(const char *path, const char *types, lo_arg **argv,
+	        int argc, void *data, void *user_data)
+{
+	struct layer_video *ctx = user_data;
+
+	layer_video_alpha(ctx, argv[0]->f);
+	return 0;
+}
+
+static int
+osc_video_delete(const char *path, const char *types, lo_arg **argv,
+		 int argc, void *data, void *user_data)
+{
+	lo_server server = user_data;
+	char buf[255], *name;
+
+	name = get_layer_name_from_path(path);
+	snprintf(buf, sizeof(buf), "/layer/%s/alpha", name);
+	lo_server_del_method(server, buf, "f");
+	free(name);
+
+	lo_server_del_method(server, path, types);
+
+	return 1;
 }
 
 static int
@@ -150,13 +222,16 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 	      int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
+	char buf[255];
 	struct layer_video *ctx = layer_video_new(&argv[2]->s, NULL);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_video_frame_cb, layer_video_free_cb))
 		return 0;
 
-	osc_add_layer_delete(server, &argv[1]->s);
+	snprintf(buf, sizeof(buf), "/layer/%s/alpha", &argv[1]->s);
+	lo_server_add_method(server, buf, "f", osc_video_alpha, ctx);
+	osc_add_layer_delete(server, &argv[1]->s, osc_video_delete);
 
 	return 0;
 }
@@ -178,7 +253,7 @@ osc_rect_new(const char *path, const char *types, lo_arg **argv,
 			 layer_rect_frame_cb, layer_rect_free_cb))
 		return 0;
 
-	osc_add_layer_delete(server, &argv[1]->s);
+	osc_add_layer_delete(server, &argv[1]->s, NULL);
 
 	return 0;
 }
@@ -210,7 +285,10 @@ osc_process_events(lo_server server)
  * Image layers
  */
 struct layer_image {
-	SDL_Surface *surf;
+	SDL_Surface	*surf_alpha;	/* with per-surface alpha */
+	SDL_Surface	*surf;
+
+	float		alpha;
 };
 
 static struct layer_image *
@@ -220,6 +298,7 @@ layer_image_new(const char *file)
 
 	if (ctx) {
 		memset(ctx, 0, sizeof(*ctx));
+		ctx->alpha = 1.;
 		layer_image_change(ctx, file);
 	}
 
@@ -229,6 +308,11 @@ layer_image_new(const char *file)
 static void
 layer_image_change(struct layer_image *ctx, const char *file)
 {
+	if (ctx->surf_alpha) {
+		SDL_FreeSurface(ctx->surf_alpha);
+		ctx->surf_alpha = NULL;
+	}
+
 	if (ctx->surf) {
 		SDL_FreeSurface(ctx->surf);
 		ctx->surf = NULL;
@@ -253,6 +337,65 @@ layer_image_change(struct layer_image *ctx, const char *file)
 		SDL_FreeSurface(ctx->surf);
 		ctx->surf = new;
 	}
+
+	layer_image_alpha(ctx, ctx->alpha);
+}
+
+static void
+layer_image_alpha(struct layer_image *ctx, float opacity)
+{
+	ctx->alpha = opacity;
+
+	if (!ctx->surf)
+		return;
+
+	if (!ctx->surf->format->Amask) {
+		Uint8 alpha = (Uint8)ceilf(opacity*SDL_ALPHA_OPAQUE);
+
+		if (alpha == SDL_ALPHA_OPAQUE)
+			SDL_SetAlpha(ctx->surf, 0, 0);
+		else
+			SDL_SetAlpha(ctx->surf, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
+
+		return;
+	}
+
+	if (opacity == 1.) {
+		if (ctx->surf_alpha) {
+			SDL_FreeSurface(ctx->surf_alpha);
+			ctx->surf_alpha = NULL;
+		}
+		return;
+	}
+
+	if (!ctx->surf_alpha)
+		ctx->surf_alpha = SDL_CreateRGBSurface(ctx->surf->flags,
+						       ctx->surf->w, ctx->surf->h,
+						       ctx->surf->format->BitsPerPixel,
+						       ctx->surf->format->Rmask,
+						       ctx->surf->format->Gmask,
+						       ctx->surf->format->Bmask,
+						       ctx->surf->format->Amask);
+
+	SDL_MAYBE_LOCK(ctx->surf_alpha);
+	SDL_MAYBE_LOCK(ctx->surf);
+
+	for (int i = 0; i < ctx->surf->w*ctx->surf->h; i++) {
+		Uint8 *src = ctx->surf->pixels;
+		Uint8 *dst = ctx->surf_alpha->pixels;
+		Uint8 r, g, b, a;
+		Uint32 v;
+
+		SDL_GetRGBA(*(Uint32 *)(src + i*ctx->surf->format->BytesPerPixel),
+			    ctx->surf->format, &r, &g, &b, &a);
+		v = SDL_MapRGBA(ctx->surf_alpha->format,
+				r, g, b, (Uint8)ceilf(a*opacity));
+		memcpy(dst + i*ctx->surf_alpha->format->BytesPerPixel, &v,
+		       ctx->surf_alpha->format->BytesPerPixel);
+	}
+
+	SDL_MAYBE_UNLOCK(ctx->surf);
+	SDL_MAYBE_UNLOCK(ctx->surf_alpha);
 }
 
 static void
@@ -261,7 +404,8 @@ layer_image_frame_cb(void *data, SDL_Surface *target)
 	struct layer_image *ctx = data;
 
 	if (ctx->surf)
-		SDL_BlitSurface(ctx->surf, NULL, target, NULL);
+		SDL_BlitSurface(ctx->surf_alpha ? : ctx->surf,
+				NULL, target, NULL);
 }
 
 static void
@@ -269,6 +413,8 @@ layer_image_free_cb(void *data)
 {
 	struct layer_image *ctx = data;
 
+	if (ctx->surf_alpha)
+		SDL_FreeSurface(ctx->surf_alpha);
 	if (ctx->surf)
 		SDL_FreeSurface(ctx->surf);
 
@@ -292,7 +438,7 @@ layer_video_lock_cb(void *data, void **p_pixels)
 	struct layer_video *ctx = data;
 
 	SDL_LockMutex(ctx->mutex);
-	SDL_LockSurface(ctx->surf);
+	SDL_MAYBE_LOCK(ctx->surf);
 	*p_pixels = ctx->surf->pixels;
 
 	return NULL; /* picture identifier, not needed here */
@@ -305,7 +451,7 @@ layer_video_unlock_cb(void *data, void *id, void *const *p_pixels)
 
 	assert(id == NULL); /* picture identifier, not needed here */
 
-	SDL_UnlockSurface(ctx->surf);
+	SDL_MAYBE_UNLOCK(ctx->surf);
 	SDL_UnlockMutex(ctx->mutex);
 }
 
@@ -328,7 +474,7 @@ layer_video_new(const char *file, SDL_Color *key)
 	if (!ctx)
 		return NULL;
 
-	ctx->surf = SDL_CreateRGBSurface(SDL_SWSURFACE, screen->w, screen->h,
+	ctx->surf = SDL_CreateRGBSurface(SDL_HWSURFACE, screen->w, screen->h,
 					 16, 0x001f, 0x07e0, 0xf800, 0);
 	ctx->mutex = SDL_CreateMutex();
 
@@ -371,9 +517,20 @@ layer_video_change(struct layer_video *ctx, const char *file, SDL_Color *key)
 	libvlc_video_set_format(ctx->mp, "RV16",
 				ctx->surf->w,
 				ctx->surf->h,
-				ctx->surf->w*2);
+				ctx->surf->w*ctx->surf->format->BytesPerPixel);
 
 	libvlc_media_player_play(ctx->mp);
+}
+
+static void
+layer_video_alpha(struct layer_video *ctx, float opacity)
+{
+	Uint8 alpha = (Uint8)ceilf(opacity*SDL_ALPHA_OPAQUE);
+
+	if (alpha == SDL_ALPHA_OPAQUE)
+		SDL_SetAlpha(ctx->surf, 0, 0);
+	else
+		SDL_SetAlpha(ctx->surf, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
 }
 
 static void
@@ -578,6 +735,8 @@ main(int argc, char **argv)
 	for (;;) {
 		sdl_process_events();
 		osc_process_events(osc_server);
+
+		SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
 
 		FOREACH_LAYER(cur)
 			cur->frame_cb(cur->data, screen);
