@@ -190,11 +190,11 @@ osc_init(const char *port)
 
 	lo_server_add_method(server, NULL, NULL, osc_generic_handler, NULL);
 
-	lo_server_add_method(server, "/layer/image/new", "iss",
+	lo_server_add_method(server, "/layer/new/image", "iss",
 			     osc_image_new, server);
-	lo_server_add_method(server, "/layer/video/new", "iss",
+	lo_server_add_method(server, "/layer/new/video", "iss",
 			     osc_video_new, server);
-	lo_server_add_method(server, "/layer/rect/new", "isiiiiiii",
+	lo_server_add_method(server, "/layer/new/rect", "isiiiiiii",
 			     osc_rect_new, server);
 
 	return server;
