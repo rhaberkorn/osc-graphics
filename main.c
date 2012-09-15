@@ -55,6 +55,7 @@ typedef void (*layer_free_cb_t)(void *data);
 
 static int layer_insert(int pos, const char *name, void *data,
 			layer_frame_cb_t frame_cb, layer_free_cb_t free_cb);
+static int layer_delete_by_name(const char *name);
 
 static struct layer_image *layer_image_new(const char *file);
 static void layer_image_change(struct layer_image *ctx, const char *file);
@@ -102,36 +103,69 @@ osc_generic_handler(const char *path, const char *types, lo_arg **argv,
 }
 
 static int
-osc_image_new(const char *path, const char *types, lo_arg **argv,
-	      int argc, void *data,
-	      void *user_data __attribute__((unused)))
+osc_layer_delete(const char *path, const char *types, lo_arg **argv,
+		 int argc, void *data, void *user_data)
 {
+	lo_server server = user_data;
+
+	/* path is /layer/[name]/delete */
+	char *name = strdup(path + 7);
+	*strchr(name, '/') = '\0';
+
+	layer_delete_by_name(name);
+	free(name);
+
+	lo_server_del_method(server, path, types);
+
+	return 0;
+}
+
+static inline void
+osc_add_layer_delete(lo_server server, const char *name)
+{
+	char path[255];
+
+	snprintf(path, sizeof(path), "/layer/%s/delete", name);
+	lo_server_add_method(server, path, "", osc_layer_delete, server);
+}
+
+static int
+osc_image_new(const char *path, const char *types, lo_arg **argv,
+	      int argc, void *data, void *user_data)
+{
+	lo_server server = user_data;
 	struct layer_image *ctx = layer_image_new(&argv[2]->s);
 
-	layer_insert(argv[0]->i, &argv[1]->s, ctx,
-		     layer_image_frame_cb, layer_image_free_cb);
+	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
+			 layer_image_frame_cb, layer_image_free_cb))
+		return 0;
+
+	osc_add_layer_delete(server, &argv[1]->s);
 
 	return 0;
 }
 
 static int
 osc_video_new(const char *path, const char *types, lo_arg **argv,
-	      int argc, void *data,
-	      void *user_data __attribute__((unused)))
+	      int argc, void *data, void *user_data)
 {
+	lo_server server = user_data;
 	struct layer_video *ctx = layer_video_new(&argv[2]->s, NULL);
 
-	layer_insert(argv[0]->i, &argv[1]->s, ctx,
-		     layer_video_frame_cb, layer_video_free_cb);
+	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
+			 layer_video_frame_cb, layer_video_free_cb))
+		return 0;
+
+	osc_add_layer_delete(server, &argv[1]->s);
 
 	return 0;
 }
 
 static int
 osc_rect_new(const char *path, const char *types, lo_arg **argv,
-	     int argc, void *data,
-	     void *user_data __attribute__((unused)))
+	     int argc, void *data, void *user_data)
 {
+	lo_server server = user_data;
 	SDL_Rect rect = {
 		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
@@ -140,8 +174,11 @@ osc_rect_new(const char *path, const char *types, lo_arg **argv,
 
 	struct layer_rect *ctx = layer_rect_new(rect, color);
 
-	layer_insert(argv[0]->i, &argv[1]->s, ctx,
-		     layer_rect_frame_cb, layer_rect_free_cb);
+	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
+			 layer_rect_frame_cb, layer_rect_free_cb))
+		return 0;
+
+	osc_add_layer_delete(server, &argv[1]->s);
 
 	return 0;
 }
@@ -154,11 +191,11 @@ osc_init(const char *port)
 	lo_server_add_method(server, NULL, NULL, osc_generic_handler, NULL);
 
 	lo_server_add_method(server, "/layer/image/new", "iss",
-			     osc_image_new, NULL);
+			     osc_image_new, server);
 	lo_server_add_method(server, "/layer/video/new", "iss",
-			     osc_video_new, NULL);
+			     osc_video_new, server);
 	lo_server_add_method(server, "/layer/rect/new", "isiiiiiii",
-			     osc_rect_new, NULL);
+			     osc_rect_new, server);
 
 	return server;
 }
@@ -488,6 +525,26 @@ layer_insert(int pos, const char *name, void *data,
 	cur->next = new;
 
 	return 0;
+}
+
+static int
+layer_delete_by_name(const char *name)
+{
+	for (struct layer *cur = &layers_head; cur->next; cur = cur->next) {
+		if (!strcmp(cur->next->name, name)) {
+			struct layer *l = cur->next;
+
+			cur->next = l->next;
+
+			l->free_cb(l->data);
+			free(l->name);
+			free(l);
+
+			return 0;
+		}
+	}
+
+	return -1;
 }
 
 int
