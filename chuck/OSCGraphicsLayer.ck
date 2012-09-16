@@ -26,10 +26,13 @@ public class OSCGraphicsLayer {
 		int index;
 
 		fun void
-		tick(float in)
+		tick(float in, float prev)
 		{
 			in $ int => geo[index];
-			geo => layer.geo;
+
+			/* optimize: avoid sending unnecessary messages */
+			if (geo[index] != (prev $ int))
+				geo => layer.geo;
 		}
 	}
 	fun OSCGraphicsPort @
@@ -64,9 +67,11 @@ public class OSCGraphicsLayer {
 		OSCGraphicsLayer @layer;
 
 		fun void
-		tick(float in)
+		tick(float in, float prev)
 		{
-			in => layer.alpha;
+			/* optimize: alpha set as float, but there are only 255 alpha levels */
+			if ((in*255) $ int != (prev*255) $ int)
+				in => layer.alpha;
 		}
 	}
 	fun OSCGraphicsPort @
