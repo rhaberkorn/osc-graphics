@@ -49,7 +49,8 @@
 		__FILE__, __LINE__, ##__VA_ARGS__, IMG_GetError());	\
 } while (0)
 
-#define NEW_LAYER_TYPES "is" /* position, name */
+#define GEO_TYPES	"iiii"	/* x, y, width, height */
+#define NEW_LAYER_TYPES	"is"	/* position, name */
 
 /*
  * Default values
@@ -68,7 +69,8 @@ static int layer_insert(int pos, const char *name, void *data,
 			layer_frame_cb_t frame_cb, layer_free_cb_t free_cb);
 static int layer_delete_by_name(const char *name);
 
-static struct layer_image *layer_image_new(const char *file);
+static struct layer_image *layer_image_new(SDL_Rect geo, const char *file);
+static void layer_image_geo(struct layer_image *ctx, SDL_Rect geo);
 static void layer_image_change(struct layer_image *ctx, const char *file);
 static void layer_image_alpha(struct layer_image *ctx, float opacity);
 static void layer_image_frame_cb(void *data, SDL_Surface *target);
@@ -159,6 +161,18 @@ osc_add_layer_delete(lo_server server, const char *name,
 }
 
 static int
+osc_image_geo(const char *path, const char *types, lo_arg **argv,
+	      int argc, void *data, void *user_data)
+{
+	struct layer_image *ctx = user_data;
+
+	layer_image_geo(ctx, (SDL_Rect){
+		argv[0]->i, argv[1]->i, argv[2]->i, argv[3]->i
+	});
+	return 0;
+}
+
+static int
 osc_image_alpha(const char *path, const char *types, lo_arg **argv,
 	        int argc, void *data, void *user_data)
 {
@@ -176,8 +190,12 @@ osc_image_delete(const char *path, const char *types, lo_arg **argv,
 	char buf[255], *name;
 
 	name = get_layer_name_from_path(path);
+
+	snprintf(buf, sizeof(buf), "/layer/%s/geo", name);
+	lo_server_del_method(server, buf, GEO_TYPES);
 	snprintf(buf, sizeof(buf), "/layer/%s/alpha", name);
 	lo_server_del_method(server, buf, "f");
+
 	free(name);
 
 	lo_server_del_method(server, path, types);
@@ -191,12 +209,19 @@ osc_image_new(const char *path, const char *types, lo_arg **argv,
 {
 	lo_server server = user_data;
 	char buf[255];
-	struct layer_image *ctx = layer_image_new(&argv[2]->s);
+	SDL_Rect geo = {
+		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
+		(Uint16)argv[4]->i, (Uint16)argv[5]->i
+	};
+
+	struct layer_image *ctx = layer_image_new(geo, &argv[6]->s);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_image_frame_cb, layer_image_free_cb))
 		return 0;
 
+	snprintf(buf, sizeof(buf), "/layer/%s/geo", &argv[1]->s);
+	lo_server_add_method(server, buf, GEO_TYPES, osc_image_geo, ctx);
 	snprintf(buf, sizeof(buf), "/layer/%s/alpha", &argv[1]->s);
 	lo_server_add_method(server, buf, "f", osc_image_alpha, ctx);
 	osc_add_layer_delete(server, &argv[1]->s, osc_image_delete);
@@ -311,11 +336,11 @@ osc_init(const char *port)
 
 	lo_server_add_method(server, NULL, NULL, osc_generic_handler, NULL);
 
-	lo_server_add_method(server, "/layer/new/image", NEW_LAYER_TYPES "s",
+	lo_server_add_method(server, "/layer/new/image", NEW_LAYER_TYPES GEO_TYPES "s",
 			     osc_image_new, server);
 	lo_server_add_method(server, "/layer/new/video", NEW_LAYER_TYPES "s",
 			     osc_video_new, server);
-	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES "iiiiiiif",
+	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES GEO_TYPES "iiif",
 			     osc_box_new, server);
 
 	return server;
@@ -332,29 +357,64 @@ osc_process_events(lo_server server)
  */
 struct layer_image {
 	SDL_Surface	*surf_alpha;	/* with per-surface alpha */
-	SDL_Surface	*surf;
+	SDL_Surface	*surf_scaled;	/* scaled image */
+	SDL_Surface	*surf;		/* original image */
 
+	SDL_Rect	geo;
 	float		alpha;
 };
 
 static struct layer_image *
-layer_image_new(const char *file)
+layer_image_new(SDL_Rect geo, const char *file)
 {
 	struct layer_image *ctx = malloc(sizeof(struct layer_image));
 
-	if (ctx) {
-		memset(ctx, 0, sizeof(*ctx));
-		ctx->alpha = 1.;
-		layer_image_change(ctx, file);
-	}
+	if (!ctx)
+		return NULL;
+
+	memset(ctx, 0, sizeof(*ctx));
+
+	layer_image_alpha(ctx, 1.);
+	layer_image_geo(ctx, geo);
+	layer_image_change(ctx, file);
 
 	return ctx;
+}
+
+static void
+layer_image_geo(struct layer_image *ctx, SDL_Rect geo)
+{
+	if (!geo.x && !geo.y && !geo.w && !geo.h)
+		ctx->geo = (SDL_Rect){0, 0, screen->w, screen->h};
+	else
+		ctx->geo = geo;
+
+	if (!ctx->surf)
+		return;
+
+	if (ctx->surf_scaled &&
+	    ctx->surf_scaled->w == ctx->geo.w &&
+	    ctx->surf_scaled->h == ctx->geo.h)
+		return;
+
+	SDL_FREESURFACE_SAFE(ctx->surf_alpha);
+	SDL_FREESURFACE_SAFE(ctx->surf_scaled);
+
+	if (ctx->surf->w != ctx->geo.w || ctx->surf->h != ctx->geo.h) {
+		ctx->surf_scaled = zoomSurface(ctx->surf,
+					       (double)ctx->geo.w/ctx->surf->w,
+					       (double)ctx->geo.h/ctx->surf->h,
+					       SMOOTHING_ON);
+	}
+
+	layer_image_alpha(ctx, ctx->alpha);
 }
 
 static void
 layer_image_change(struct layer_image *ctx, const char *file)
 {
 	SDL_FREESURFACE_SAFE(ctx->surf_alpha);
+	SDL_FREESURFACE_SAFE(ctx->surf_scaled);
 	SDL_FREESURFACE_SAFE(ctx->surf);
 
 	if (!file || !*file)
@@ -366,18 +426,7 @@ layer_image_change(struct layer_image *ctx, const char *file)
 		exit(EXIT_FAILURE);
 	}
 
-	if (ctx->surf->w != screen->w || ctx->surf->h != screen->h) {
-		SDL_Surface *new;
-
-		new = zoomSurface(ctx->surf,
-				  (double)screen->w/ctx->surf->w,
-				  (double)screen->h/ctx->surf->h,
-				  SMOOTHING_ON);
-		SDL_FreeSurface(ctx->surf);
-		ctx->surf = new;
-	}
-
-	layer_image_alpha(ctx, ctx->alpha);
+	layer_image_geo(ctx, ctx->geo);
 }
 
 #if 0
@@ -432,17 +481,19 @@ rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
 static void
 layer_image_alpha(struct layer_image *ctx, float opacity)
 {
+	SDL_Surface *surf = ctx->surf_scaled ? : ctx->surf;
 	Uint8 alpha = (Uint8)ceilf(opacity*SDL_ALPHA_OPAQUE);
+
 	ctx->alpha = opacity;
 
-	if (!ctx->surf)
+	if (!surf)
 		return;
 
-	if (!ctx->surf->format->Amask) {
+	if (!surf->format->Amask) {
 		if (alpha == SDL_ALPHA_OPAQUE)
-			SDL_SetAlpha(ctx->surf, 0, 0);
+			SDL_SetAlpha(surf, 0, 0);
 		else
-			SDL_SetAlpha(ctx->surf, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
+			SDL_SetAlpha(surf, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
 
 		return;
 	}
@@ -453,13 +504,13 @@ layer_image_alpha(struct layer_image *ctx, float opacity)
 	}
 
 	if (!ctx->surf_alpha) {
-		ctx->surf_alpha = SDL_CreateRGBSurface(ctx->surf->flags,
-						       ctx->surf->w, ctx->surf->h,
-						       ctx->surf->format->BitsPerPixel,
-						       ctx->surf->format->Rmask,
-						       ctx->surf->format->Gmask,
-						       ctx->surf->format->Bmask,
-						       ctx->surf->format->Amask);
+		ctx->surf_alpha = SDL_CreateRGBSurface(surf->flags,
+						       surf->w, surf->h,
+						       surf->format->BitsPerPixel,
+						       surf->format->Rmask,
+						       surf->format->Gmask,
+						       surf->format->Bmask,
+						       surf->format->Amask);
 	}
 
 	if (alpha == SDL_ALPHA_TRANSPARENT) {
@@ -467,7 +518,7 @@ layer_image_alpha(struct layer_image *ctx, float opacity)
 			     SDL_MapRGBA(ctx->surf_alpha->format,
 			     	     	 0, 0, 0, SDL_ALPHA_TRANSPARENT));
 	} else {
-		rgba_blit_with_alpha(ctx->surf, ctx->surf_alpha, alpha);
+		rgba_blit_with_alpha(surf, ctx->surf_alpha, alpha);
 	}
 }
 
@@ -476,9 +527,11 @@ layer_image_frame_cb(void *data, SDL_Surface *target)
 {
 	struct layer_image *ctx = data;
 
-	if (ctx->surf)
-		SDL_BlitSurface(ctx->surf_alpha ? : ctx->surf,
-				NULL, target, NULL);
+	if (!ctx->surf)
+		return;
+
+	SDL_BlitSurface(ctx->surf_alpha ? : ctx->surf_scaled ? : ctx->surf,
+			NULL, target, &ctx->geo);
 }
 
 static void
@@ -486,10 +539,9 @@ layer_image_free_cb(void *data)
 {
 	struct layer_image *ctx = data;
 
-	if (ctx->surf_alpha)
-		SDL_FreeSurface(ctx->surf_alpha);
-	if (ctx->surf)
-		SDL_FreeSurface(ctx->surf);
+	SDL_FREESURFACE_SAFE(ctx->surf_alpha);
+	SDL_FREESURFACE_SAFE(ctx->surf_scaled);
+	SDL_FREESURFACE_SAFE(ctx->surf);
 
 	free(ctx);
 }
