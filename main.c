@@ -527,10 +527,12 @@ layer_video_alpha(struct layer_video *ctx, float opacity)
 {
 	Uint8 alpha = (Uint8)ceilf(opacity*SDL_ALPHA_OPAQUE);
 
+	SDL_LockMutex(ctx->mutex);
 	if (alpha == SDL_ALPHA_OPAQUE)
 		SDL_SetAlpha(ctx->surf, 0, 0);
 	else
 		SDL_SetAlpha(ctx->surf, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
+	SDL_UnlockMutex(ctx->mutex);
 }
 
 static void
