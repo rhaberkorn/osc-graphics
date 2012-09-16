@@ -49,6 +49,8 @@
 		__FILE__, __LINE__, ##__VA_ARGS__, IMG_GetError());	\
 } while (0)
 
+#define NEW_LAYER_TYPES "is" /* position, name */
+
 /*
  * Default values
  */
@@ -309,11 +311,11 @@ osc_init(const char *port)
 
 	lo_server_add_method(server, NULL, NULL, osc_generic_handler, NULL);
 
-	lo_server_add_method(server, "/layer/new/image", "iss",
+	lo_server_add_method(server, "/layer/new/image", NEW_LAYER_TYPES "s",
 			     osc_image_new, server);
-	lo_server_add_method(server, "/layer/new/video", "iss",
+	lo_server_add_method(server, "/layer/new/video", NEW_LAYER_TYPES "s",
 			     osc_video_new, server);
-	lo_server_add_method(server, "/layer/new/box", "isiiiiiiif",
+	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES "iiiiiiif",
 			     osc_box_new, server);
 
 	return server;
