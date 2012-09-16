@@ -92,7 +92,7 @@ public class OSCGraphics {
 		OSCGraphicsBox box;
 
 		box.init(osc_send, "box", "iiif", pos, "__box_"+free_id, geo);
-		for (0 => int i; i < color.cap(); i++)
+		for (0 => int i; i < 3; i++)
 			color[i] => osc_send.addInt;
 		opacity => osc_send.addFloat;
 

@@ -15,10 +15,33 @@ public class OSCGraphicsLayer {
 		osc_send.startMsg("/layer/new/"+type, "isiiii"+osc_types);
 		pos => osc_send.addInt;
 		name => osc_send.addString;
-		for (0 => int i; i < geo.cap(); i++)
+		for (0 => int i; i < 4; i++)
 			geo[i] => osc_send.addInt;
 	}
 
+	class GeoPort extends OSCGraphicsPort {
+		OSCGraphicsLayer @layer;
+
+		int geo[];
+		int index;
+
+		fun void
+		tick(float in)
+		{
+			in $ int => geo[index];
+			geo => layer.geo;
+		}
+	}
+	fun OSCGraphicsPort @
+	getGeoPort(int geo[], int index)
+	{
+		GeoPort p;
+		this @=> p.layer;
+		geo @=> p.geo;
+		index => p.index;
+
+		return p;
+	}
 	fun int[]
 	geo(int geo[])
 	{
@@ -26,7 +49,7 @@ public class OSCGraphicsLayer {
 			[0, 0, 0, 0] @=> geo;
 
 		osc_send.startMsg("/layer/"+name+"/geo", "iiii");
-		for (0 => int i; i < geo.cap(); i++)
+		for (0 => int i; i < 4; i++)
 			geo[i] => osc_send.addInt;
 
 		return geo;
@@ -37,25 +60,21 @@ public class OSCGraphicsLayer {
 		return geo(null);
 	}
 
-	class AlphaPort extends Chubgraph {
-		inlet => blackhole;
-		inlet => outlet;
+	class AlphaPort extends OSCGraphicsPort {
+		OSCGraphicsLayer @layer;
 
 		fun void
-		poll(OSCGraphicsLayer @layer)
+		tick(float in)
 		{
-			inlet.last() => float prev;
-
-			while (50::ms => now)
-				if (inlet.last() != prev)
-					inlet.last() => layer.alpha => prev;
+			in => layer.alpha;
 		}
 	}
-	fun UGen @
+	fun OSCGraphicsPort @
 	getAlphaPort()
 	{
 		AlphaPort p;
-		spork ~ p.poll(this);
+		this @=> p.layer;
+
 		return p;
 	}
 	fun float

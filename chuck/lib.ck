@@ -2,6 +2,7 @@
 
 prefix+"/share/osc-graphics/chuck" => string path;
 
+path+"/OSCGraphicsPort.ck" => Machine.add;
 path+"/OSCGraphicsLayer.ck" => Machine.add;
 path+"/OSCGraphicsImage.ck" => Machine.add;
 path+"/OSCGraphicsVideo.ck" => Machine.add;
