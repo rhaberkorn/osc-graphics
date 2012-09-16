@@ -88,6 +88,7 @@ static void layer_box_frame_cb(void *data, SDL_Surface *target);
 static void layer_box_free_cb(void *data);
 
 static SDL_Surface *screen;
+static int config_dump_osc = 0;
 
 static void
 osc_error(int num, const char *msg, const char *path)
@@ -102,17 +103,18 @@ osc_generic_handler(const char *path, const char *types, lo_arg **argv,
 		    int argc, void *data,
 		    void *user_data __attribute__((unused)))
 {
-    int i;
+	if (!config_dump_osc)
+		return 1;
 
-    printf("path: <%s>\n", path);
-    for (i=0; i<argc; i++) {
-	printf("arg %d '%c' ", i, types[i]);
-	lo_arg_pp(types[i], argv[i]);
+	printf("path: <%s>\n", path);
+	for (int i = 0; i < argc; i++) {
+		printf("arg %d '%c' ", i, types[i]);
+		lo_arg_pp(types[i], argv[i]);
+		printf("\n");
+	}
 	printf("\n");
-    }
-    printf("\n");
 
-    return 1;
+	return 1;
 }
 
 static inline char *
@@ -706,6 +708,10 @@ sdl_process_events(void)
 
 			case SDLK_F10:
 				SDL_ShowCursor(!SDL_ShowCursor(SDL_QUERY));
+				break;
+
+			case SDLK_F9:
+				config_dump_osc ^= 1;
 				break;
 
 			case SDLK_ESCAPE:
