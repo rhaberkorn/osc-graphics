@@ -49,8 +49,8 @@
 		__FILE__, __LINE__, ##__VA_ARGS__, IMG_GetError());	\
 } while (0)
 
-#define GEO_TYPES	"iiii"	/* x, y, width, height */
-#define NEW_LAYER_TYPES	"is"	/* position, name */
+#define GEO_TYPES	"iiii"		/* x, y, width, height */
+#define NEW_LAYER_TYPES	"is" GEO_TYPES	/* position, name */
 
 /*
  * Default values
@@ -76,7 +76,9 @@ static void layer_image_alpha(struct layer_image *ctx, float opacity);
 static void layer_image_frame_cb(void *data, SDL_Surface *target);
 static void layer_image_free_cb(void *data);
 
-static struct layer_video *layer_video_new(const char *file, SDL_Color *key);
+static struct layer_video *layer_video_new(SDL_Rect geo, const char *file,
+					   SDL_Color *key);
+static void layer_video_geo(struct layer_video *ctx, SDL_Rect geo);
 static void layer_video_change(struct layer_video *ctx,
 			       const char *file, SDL_Color *key);
 static void layer_video_alpha(struct layer_video *ctx, float opacity);
@@ -230,6 +232,18 @@ osc_image_new(const char *path, const char *types, lo_arg **argv,
 }
 
 static int
+osc_video_geo(const char *path, const char *types, lo_arg **argv,
+	      int argc, void *data, void *user_data)
+{
+	struct layer_video *ctx = user_data;
+
+	layer_video_geo(ctx, (SDL_Rect){
+		argv[0]->i, argv[1]->i, argv[2]->i, argv[3]->i
+	});
+	return 0;
+}
+
+static int
 osc_video_alpha(const char *path, const char *types, lo_arg **argv,
 	        int argc, void *data, void *user_data)
 {
@@ -247,8 +261,12 @@ osc_video_delete(const char *path, const char *types, lo_arg **argv,
 	char buf[255], *name;
 
 	name = get_layer_name_from_path(path);
+
+	snprintf(buf, sizeof(buf), "/layer/%s/geo", name);
+	lo_server_del_method(server, buf, GEO_TYPES);
 	snprintf(buf, sizeof(buf), "/layer/%s/alpha", name);
 	lo_server_del_method(server, buf, "f");
+
 	free(name);
 
 	lo_server_del_method(server, path, types);
@@ -262,12 +280,19 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 {
 	lo_server server = user_data;
 	char buf[255];
-	struct layer_video *ctx = layer_video_new(&argv[2]->s, NULL);
+	SDL_Rect geo = {
+		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
+		(Uint16)argv[4]->i, (Uint16)argv[5]->i
+	};
+
+	struct layer_video *ctx = layer_video_new(geo, &argv[6]->s, NULL);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_video_frame_cb, layer_video_free_cb))
 		return 0;
 
+	snprintf(buf, sizeof(buf), "/layer/%s/geo", &argv[1]->s);
+	lo_server_add_method(server, buf, GEO_TYPES, osc_video_geo, ctx);
 	snprintf(buf, sizeof(buf), "/layer/%s/alpha", &argv[1]->s);
 	lo_server_add_method(server, buf, "f", osc_video_alpha, ctx);
 	osc_add_layer_delete(server, &argv[1]->s, osc_video_delete);
@@ -336,11 +361,11 @@ osc_init(const char *port)
 
 	lo_server_add_method(server, NULL, NULL, osc_generic_handler, NULL);
 
-	lo_server_add_method(server, "/layer/new/image", NEW_LAYER_TYPES GEO_TYPES "s",
+	lo_server_add_method(server, "/layer/new/image", NEW_LAYER_TYPES "s",
 			     osc_image_new, server);
 	lo_server_add_method(server, "/layer/new/video", NEW_LAYER_TYPES "s",
 			     osc_video_new, server);
-	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES GEO_TYPES "iiif",
+	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES "iiif",
 			     osc_box_new, server);
 
 	return server;
@@ -555,6 +580,9 @@ struct layer_video {
 
 	SDL_Surface *surf;
 	SDL_mutex *mutex;
+
+	SDL_Rect geo;
+	float alpha;
 };
 
 static void *
@@ -588,7 +616,7 @@ layer_video_display_cb(void *data __attribute__((unused)), void *id)
 }
 
 static struct layer_video *
-layer_video_new(const char *file, SDL_Color *key)
+layer_video_new(SDL_Rect geo, const char *file, SDL_Color *key)
 {
 	char const *vlc_argv[] = {
 		"--no-audio",	/* skip any audio track */
@@ -599,9 +627,12 @@ layer_video_new(const char *file, SDL_Color *key)
 	if (!ctx)
 		return NULL;
 
-	ctx->surf = SDL_CreateRGBSurface(SDL_HWSURFACE, screen->w, screen->h,
-					 16, 0x001f, 0x07e0, 0xf800, 0);
+	memset(ctx, 0, sizeof(*ctx));
+
+	ctx->alpha = 1.;
 	ctx->mutex = SDL_CreateMutex();
+
+	layer_video_geo(ctx, geo);
 
 	ctx->vlcinst = libvlc_new(NARRAY(vlc_argv), vlc_argv);
 	ctx->mp = NULL;
@@ -609,6 +640,41 @@ layer_video_new(const char *file, SDL_Color *key)
 	layer_video_change(ctx, file, key);
 
 	return ctx;
+}
+
+static void
+layer_video_geo(struct layer_video *ctx, SDL_Rect geo)
+{
+	if (!geo.x && !geo.y && !geo.w && !geo.h)
+		ctx->geo = (SDL_Rect){0, 0, screen->w, screen->h};
+	else
+		ctx->geo = geo;
+
+	if (ctx->surf &&
+	    ctx->surf->w == ctx->geo.w && ctx->surf->h == ctx->geo.h)
+		return;
+
+	if (ctx->mp)
+		/* FIXME */
+		libvlc_media_player_stop(ctx->mp);
+	//SDL_LockMutex(ctx->mutex);
+
+	SDL_FREESURFACE_SAFE(ctx->surf);
+	ctx->surf = SDL_CreateRGBSurface(SDL_HWSURFACE, ctx->geo.w, ctx->geo.h,
+					 16, 0x001f, 0x07e0, 0xf800, 0);
+
+	if (ctx->mp) {
+		libvlc_video_set_format(ctx->mp, "RV16",
+					ctx->surf->w,
+					ctx->surf->h,
+					ctx->surf->w*ctx->surf->format->BytesPerPixel);
+
+		libvlc_media_player_play(ctx->mp);
+	}
+
+	//SDL_UnlockMutex(ctx->mutex);
+
+	layer_video_alpha(ctx, ctx->alpha);
 }
 
 static void
@@ -624,6 +690,7 @@ layer_video_change(struct layer_video *ctx, const char *file, SDL_Color *key)
 	if (!file || !*file)
 		return;
 
+	/* FIXME: must save color key in structure */
 	if (key) {
 		SDL_SetColorKey(ctx->surf, SDL_SRCCOLORKEY,
 				SDL_MapRGB(ctx->surf->format,
@@ -636,8 +703,9 @@ layer_video_change(struct layer_video *ctx, const char *file, SDL_Color *key)
 	ctx->mp = libvlc_media_player_new_from_media(m);
 	libvlc_media_release(m);
 
-	libvlc_video_set_callbacks(ctx->mp, layer_video_lock_cb,
-				   layer_video_unlock_cb, layer_video_display_cb,
+	libvlc_video_set_callbacks(ctx->mp,
+				   layer_video_lock_cb, layer_video_unlock_cb,
+				   layer_video_display_cb,
 				   ctx);
 	libvlc_video_set_format(ctx->mp, "RV16",
 				ctx->surf->w,
@@ -651,6 +719,7 @@ static void
 layer_video_alpha(struct layer_video *ctx, float opacity)
 {
 	Uint8 alpha = (Uint8)ceilf(opacity*SDL_ALPHA_OPAQUE);
+	ctx->alpha = opacity;
 
 	SDL_LockMutex(ctx->mutex);
 	if (alpha == SDL_ALPHA_OPAQUE)
@@ -667,7 +736,7 @@ layer_video_frame_cb(void *data, SDL_Surface *target)
 
 	if (ctx->mp) {
 		SDL_LockMutex(ctx->mutex);
-		SDL_BlitSurface(ctx->surf, NULL, target, NULL);
+		SDL_BlitSurface(ctx->surf, NULL, target, &ctx->geo);
 		SDL_UnlockMutex(ctx->mutex);
 	}
 }
