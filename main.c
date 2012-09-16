@@ -79,11 +79,13 @@ static void layer_video_alpha(struct layer_video *ctx, float opacity);
 static void layer_video_frame_cb(void *data, SDL_Surface *target);
 static void layer_video_free_cb(void *data);
 
-static struct layer_rect *layer_rect_new(SDL_Rect rect, SDL_Color color);
-static void layer_rect_change(struct layer_rect *ctx,
-			      SDL_Rect rect, SDL_Color color);
-static void layer_rect_frame_cb(void *data, SDL_Surface *target);
-static void layer_rect_free_cb(void *data);
+static struct layer_box *layer_box_new(SDL_Rect rect, SDL_Color color,
+				       float opacity);
+static void layer_box_change(struct layer_box *ctx,
+			     SDL_Rect rect, SDL_Color color);
+static void layer_box_alpha(struct layer_box *ctx, float opacity);
+static void layer_box_frame_cb(void *data, SDL_Surface *target);
+static void layer_box_free_cb(void *data);
 
 static SDL_Surface *screen;
 
@@ -245,23 +247,55 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 }
 
 static int
-osc_rect_new(const char *path, const char *types, lo_arg **argv,
-	     int argc, void *data, void *user_data)
+osc_box_alpha(const char *path, const char *types, lo_arg **argv,
+	      int argc, void *data, void *user_data)
+{
+	struct layer_box *ctx = user_data;
+
+	layer_box_alpha(ctx, argv[0]->f);
+	return 0;
+}
+
+static int
+osc_box_delete(const char *path, const char *types, lo_arg **argv,
+	       int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
+	char buf[255], *name;
+
+	name = get_layer_name_from_path(path);
+	snprintf(buf, sizeof(buf), "/layer/%s/alpha", name);
+	lo_server_del_method(server, buf, "f");
+	free(name);
+
+	lo_server_del_method(server, path, types);
+
+	return 1;
+}
+
+static int
+osc_box_new(const char *path, const char *types, lo_arg **argv,
+	    int argc, void *data, void *user_data)
+{
+	lo_server server = user_data;
+	char buf[255];
 	SDL_Rect rect = {
 		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
 	};
-	SDL_Color color = {(Uint8)argv[6]->i, (Uint8)argv[7]->i, (Uint8)argv[8]->i};
+	SDL_Color color = {
+		(Uint8)argv[6]->i, (Uint8)argv[7]->i, (Uint8)argv[8]->i
+	};
 
-	struct layer_rect *ctx = layer_rect_new(rect, color);
+	struct layer_box *ctx = layer_box_new(rect, color, argv[9]->f);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
-			 layer_rect_frame_cb, layer_rect_free_cb))
+			 layer_box_frame_cb, layer_box_free_cb))
 		return 0;
 
-	osc_add_layer_delete(server, &argv[1]->s, NULL);
+	snprintf(buf, sizeof(buf), "/layer/%s/alpha", &argv[1]->s);
+	lo_server_add_method(server, buf, "f", osc_box_alpha, ctx);
+	osc_add_layer_delete(server, &argv[1]->s, osc_box_delete);
 
 	return 0;
 }
@@ -277,8 +311,8 @@ osc_init(const char *port)
 			     osc_image_new, server);
 	lo_server_add_method(server, "/layer/new/video", "iss",
 			     osc_video_new, server);
-	lo_server_add_method(server, "/layer/new/rect", "isiiiiiii",
-			     osc_rect_new, server);
+	lo_server_add_method(server, "/layer/new/box", "isiiiiiiif",
+			     osc_box_new, server);
 
 	return server;
 }
@@ -597,49 +631,59 @@ layer_video_free_cb(void *data)
 }
 
 /*
- * Rectangle layer
+ * Box layer
  */
-struct layer_rect {
-	SDL_Rect	rect;
-	SDL_Color	color;
+struct layer_box {
+	Sint16 x1, y1, x2, y2;
+	Uint8 r, g, b, a;
 };
 
-static struct layer_rect *
-layer_rect_new(SDL_Rect rect, SDL_Color color)
+static struct layer_box *
+layer_box_new(SDL_Rect rect, SDL_Color color, float opacity)
 {
-	struct layer_rect *ctx = malloc(sizeof(struct layer_rect));
+	struct layer_box *ctx = malloc(sizeof(struct layer_box));
 
-	if (ctx)
-		layer_rect_change(ctx, rect, color);
+	if (ctx) {
+		layer_box_change(ctx, rect, color);
+		layer_box_alpha(ctx, opacity);
+	}
 
 	return ctx;
 }
 
 static void
-layer_rect_change(struct layer_rect *ctx, SDL_Rect rect, SDL_Color color)
+layer_box_change(struct layer_box *ctx, SDL_Rect rect, SDL_Color color)
 {
-	ctx->rect = rect;
-	ctx->color = color;
+	ctx->x1 = rect.x;
+	ctx->y1 = rect.y;
+	ctx->x2 = rect.x + rect.w;
+	ctx->y2 = rect.y + rect.h;
+
+	ctx->r = color.r;
+	ctx->g = color.g;
+	ctx->b = color.b;
 }
 
 static void
-layer_rect_frame_cb(void *data, SDL_Surface *target)
+layer_box_alpha(struct layer_box *ctx, float opacity)
 {
-	struct layer_rect *ctx = data;
-	SDL_Rect *dstrect = &ctx->rect;
-
-	if (!dstrect->x && !dstrect->y && !dstrect->w && !dstrect->h)
-		dstrect = NULL;
-
-	SDL_FillRect(target, dstrect,
-		     SDL_MapRGB(target->format,
-				ctx->color.r, ctx->color.g, ctx->color.b));
+	ctx->a = (Uint8)ceilf(opacity*SDL_ALPHA_OPAQUE);
 }
 
 static void
-layer_rect_free_cb(void *data)
+layer_box_frame_cb(void *data, SDL_Surface *target)
 {
-	struct layer_rect *ctx = data;
+	struct layer_box *ctx = data;
+
+	boxRGBA(target, ctx->x1, ctx->y1,
+		ctx->x2 ? : target->w, ctx->y2 ? : target->h,
+		ctx->r, ctx->g, ctx->b, ctx->a);
+}
+
+static void
+layer_box_free_cb(void *data)
+{
+	struct layer_box *ctx = data;
 
 	free(ctx);
 }
