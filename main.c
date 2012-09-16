@@ -10,6 +10,7 @@
 #include <SDL_framerate.h>
 #include <SDL_rotozoom.h>
 #include <SDL_gfxPrimitives.h>
+#include <SDL_gfxBlitFunc.h>
 
 #include <vlc/vlc.h>
 
@@ -341,17 +342,65 @@ layer_image_change(struct layer_image *ctx, const char *file)
 	layer_image_alpha(ctx, ctx->alpha);
 }
 
+#if 0
+
+static inline void
+rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
+{
+	SDL_FillRect(dst_surf, NULL,
+		     SDL_MapRGBA(dst_surf->format,
+		     	     	 0, 0, 0, SDL_ALPHA_TRANSPARENT));
+	SDL_gfxBlitRGBA(src_surf, NULL, dst_surf, NULL);
+	SDL_gfxMultiplyAlpha(dst_surf, alpha);
+}
+
+#else
+
+static inline void
+rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
+{
+	Uint8 *src = src_surf->pixels;
+	Uint8 *dst = dst_surf->pixels;
+	SDL_PixelFormat *fmt = src_surf->format;
+
+	int inc = fmt->BytesPerPixel;
+	int len = src_surf->w * src_surf->h;
+
+	SDL_MAYBE_LOCK(src_surf);
+	SDL_MAYBE_LOCK(dst_surf);
+
+	GFX_DUFFS_LOOP4({
+		register Uint32 pixel;
+		register int a;
+
+		pixel = *(Uint32 *)src;
+		a = ((pixel & fmt->Amask) >> fmt->Ashift) << fmt->Aloss;
+		a = (a*alpha)/SDL_ALPHA_OPAQUE;
+		a = (a << fmt->Aloss) << fmt->Ashift;
+		pixel &= ~fmt->Amask;
+		pixel |= a;
+		*(Uint32 *)dst = pixel;
+
+		src += inc;
+		dst += inc;
+	}, len)
+
+	SDL_MAYBE_UNLOCK(dst_surf);
+	SDL_MAYBE_UNLOCK(src_surf);
+}
+
+#endif
+
 static void
 layer_image_alpha(struct layer_image *ctx, float opacity)
 {
+	Uint8 alpha = (Uint8)ceilf(opacity*SDL_ALPHA_OPAQUE);
 	ctx->alpha = opacity;
 
 	if (!ctx->surf)
 		return;
 
 	if (!ctx->surf->format->Amask) {
-		Uint8 alpha = (Uint8)ceilf(opacity*SDL_ALPHA_OPAQUE);
-
 		if (alpha == SDL_ALPHA_OPAQUE)
 			SDL_SetAlpha(ctx->surf, 0, 0);
 		else
@@ -360,7 +409,7 @@ layer_image_alpha(struct layer_image *ctx, float opacity)
 		return;
 	}
 
-	if (opacity == 1.) {
+	if (alpha == SDL_ALPHA_OPAQUE) {
 		if (ctx->surf_alpha) {
 			SDL_FreeSurface(ctx->surf_alpha);
 			ctx->surf_alpha = NULL;
@@ -368,7 +417,7 @@ layer_image_alpha(struct layer_image *ctx, float opacity)
 		return;
 	}
 
-	if (!ctx->surf_alpha)
+	if (!ctx->surf_alpha) {
 		ctx->surf_alpha = SDL_CreateRGBSurface(ctx->surf->flags,
 						       ctx->surf->w, ctx->surf->h,
 						       ctx->surf->format->BitsPerPixel,
@@ -376,26 +425,15 @@ layer_image_alpha(struct layer_image *ctx, float opacity)
 						       ctx->surf->format->Gmask,
 						       ctx->surf->format->Bmask,
 						       ctx->surf->format->Amask);
-
-	SDL_MAYBE_LOCK(ctx->surf_alpha);
-	SDL_MAYBE_LOCK(ctx->surf);
-
-	for (int i = 0; i < ctx->surf->w*ctx->surf->h; i++) {
-		Uint8 *src = ctx->surf->pixels;
-		Uint8 *dst = ctx->surf_alpha->pixels;
-		Uint8 r, g, b, a;
-		Uint32 v;
-
-		SDL_GetRGBA(*(Uint32 *)(src + i*ctx->surf->format->BytesPerPixel),
-			    ctx->surf->format, &r, &g, &b, &a);
-		v = SDL_MapRGBA(ctx->surf_alpha->format,
-				r, g, b, (Uint8)ceilf(a*opacity));
-		memcpy(dst + i*ctx->surf_alpha->format->BytesPerPixel, &v,
-		       ctx->surf_alpha->format->BytesPerPixel);
 	}
 
-	SDL_MAYBE_UNLOCK(ctx->surf);
-	SDL_MAYBE_UNLOCK(ctx->surf_alpha);
+	if (alpha == SDL_ALPHA_TRANSPARENT) {
+		SDL_FillRect(ctx->surf_alpha, NULL,
+			     SDL_MapRGBA(ctx->surf_alpha->format,
+			     	     	 0, 0, 0, SDL_ALPHA_TRANSPARENT));
+	} else {
+		rgba_blit_with_alpha(ctx->surf, ctx->surf_alpha, alpha);
+	}
 }
 
 static void
