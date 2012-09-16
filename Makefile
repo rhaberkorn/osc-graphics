@@ -1,3 +1,5 @@
+PREFIX := /usr/local
+
 CC := gcc
 
 SDL_CFLAGS := $(shell sdl-config --cflags)
@@ -15,7 +17,8 @@ LIBVLC_LDFLAGS := $(shell pkg-config libvlc --libs)
 LIBLO_CFLAGS := $(shell pkg-config liblo --cflags)
 LIBLO_LDFLAGS := $(shell pkg-config liblo --libs)
 
-CFLAGS := -std=c99 -Wall -g -O0 \
+CFLAGS ?= -g -O0
+CFLAGS += -std=c99 -Wall \
 	  $(SDL_CFLAGS) $(SDL_IMAGE_CFLAGS) $(SDL_GFX_CFLAGS) \
 	  $(LIBVLC_CFLAGS) $(LIBLO_CFLAGS)
 LDFLAGS := -lm \
@@ -26,6 +29,11 @@ all : osc-graphics
 
 osc-graphics : main.o
 	$(CC) $(LDFLAGS) $^ -o $@
+
+install : all
+	cp osc-graphics $(PREFIX)/bin
+	mkdir -p $(PREFIX)/share/osc-graphics/chuck
+	cp chuck/*.ck $(PREFIX)/share/osc-graphics/chuck
 
 clean:
 	$(RM) *.o osc-graphics{,.exe}
