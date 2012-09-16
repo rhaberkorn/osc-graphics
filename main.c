@@ -32,6 +32,13 @@
 		SDL_UnlockSurface(SURFACE);	\
 } while (0)
 
+#define SDL_FREESURFACE_SAFE(SURFACE) do {	\
+	if (SURFACE) {				\
+		SDL_FreeSurface(SURFACE);	\
+		SURFACE = NULL;			\
+	}					\
+} while (0)
+
 #define SDL_ERROR(FMT, ...) do {					\
 	fprintf(stderr, "%s(%d): " FMT ": %s\n",			\
 		__FILE__, __LINE__, ##__VA_ARGS__, SDL_GetError());	\
@@ -309,15 +316,8 @@ layer_image_new(const char *file)
 static void
 layer_image_change(struct layer_image *ctx, const char *file)
 {
-	if (ctx->surf_alpha) {
-		SDL_FreeSurface(ctx->surf_alpha);
-		ctx->surf_alpha = NULL;
-	}
-
-	if (ctx->surf) {
-		SDL_FreeSurface(ctx->surf);
-		ctx->surf = NULL;
-	}
+	SDL_FREESURFACE_SAFE(ctx->surf_alpha);
+	SDL_FREESURFACE_SAFE(ctx->surf);
 
 	if (!file || !*file)
 		return;
@@ -410,10 +410,7 @@ layer_image_alpha(struct layer_image *ctx, float opacity)
 	}
 
 	if (alpha == SDL_ALPHA_OPAQUE) {
-		if (ctx->surf_alpha) {
-			SDL_FreeSurface(ctx->surf_alpha);
-			ctx->surf_alpha = NULL;
-		}
+		SDL_FREESURFACE_SAFE(ctx->surf_alpha);
 		return;
 	}
 
