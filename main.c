@@ -80,10 +80,9 @@ static void layer_image_frame_cb(void *data, SDL_Surface *target);
 static void layer_image_free_cb(void *data);
 
 static struct layer_video *layer_video_new(SDL_Rect geo, float opacity,
-					   const char *url, SDL_Color *key);
+					   const char *url);
 static void layer_video_geo(struct layer_video *ctx, SDL_Rect geo);
-static void layer_video_url(struct layer_video *ctx,
-			    const char *url, SDL_Color *key);
+static void layer_video_url(struct layer_video *ctx, const char *url);
 static void layer_video_alpha(struct layer_video *ctx, float opacity);
 static void layer_video_frame_cb(void *data, SDL_Surface *target);
 static void layer_video_free_cb(void *data);
@@ -297,7 +296,7 @@ osc_video_url(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_video *ctx = user_data;
 
-	layer_video_url(ctx, &argv[0]->s, NULL);
+	layer_video_url(ctx, &argv[0]->s);
 	return 0;
 }
 
@@ -331,8 +330,7 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
 	};
 
-	struct layer_video *ctx = layer_video_new(geo, argv[6]->f,
-						  &argv[7]->s, NULL);
+	struct layer_video *ctx = layer_video_new(geo, argv[6]->f, &argv[7]->s);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_video_frame_cb, layer_video_free_cb))
@@ -694,7 +692,7 @@ layer_video_display_cb(void *data __attribute__((unused)), void *id)
 }
 
 static struct layer_video *
-layer_video_new(SDL_Rect geo, float opacity, const char *url, SDL_Color *key)
+layer_video_new(SDL_Rect geo, float opacity, const char *url)
 {
 	char const *vlc_argv[] = {
 		"--no-audio",	/* skip any audio track */
@@ -707,15 +705,14 @@ layer_video_new(SDL_Rect geo, float opacity, const char *url, SDL_Color *key)
 
 	memset(ctx, 0, sizeof(*ctx));
 
-	ctx->alpha = opacity;
-	ctx->mutex = SDL_CreateMutex();
-
 	layer_video_geo(ctx, geo);
+	layer_video_alpha(ctx, opacity);
 
+	ctx->mutex = SDL_CreateMutex();
 	ctx->vlcinst = libvlc_new(NARRAY(vlc_argv), vlc_argv);
 	ctx->mp = NULL;
 
-	layer_video_url(ctx, url, key);
+	layer_video_url(ctx, url);
 
 	return ctx;
 }
@@ -727,38 +724,15 @@ layer_video_geo(struct layer_video *ctx, SDL_Rect geo)
 		ctx->geo = (SDL_Rect){0, 0, screen->w, screen->h};
 	else
 		ctx->geo = geo;
-
-	if (ctx->surf &&
-	    ctx->surf->w == ctx->geo.w && ctx->surf->h == ctx->geo.h)
-		return;
-
-	if (ctx->mp)
-		/* FIXME */
-		libvlc_media_player_stop(ctx->mp);
-	//SDL_LockMutex(ctx->mutex);
-
-	SDL_FREESURFACE_SAFE(ctx->surf);
-	ctx->surf = SDL_CreateRGBSurface(SDL_HWSURFACE, ctx->geo.w, ctx->geo.h,
-					 16, 0x001f, 0x07e0, 0xf800, 0);
-
-	if (ctx->mp) {
-		libvlc_video_set_format(ctx->mp, "RV16",
-					ctx->surf->w,
-					ctx->surf->h,
-					ctx->surf->w*ctx->surf->format->BytesPerPixel);
-
-		libvlc_media_player_play(ctx->mp);
-	}
-
-	//SDL_UnlockMutex(ctx->mutex);
-
-	layer_video_alpha(ctx, ctx->alpha);
 }
 
 static void
-layer_video_url(struct layer_video *ctx, const char *url, SDL_Color *key)
+layer_video_url(struct layer_video *ctx, const char *url)
 {
 	libvlc_media_t *m;
+	unsigned int width, height;
+
+	SDL_FREESURFACE_SAFE(ctx->surf);
 
 	if (ctx->mp) {
 		libvlc_media_player_release(ctx->mp);
@@ -768,27 +742,29 @@ layer_video_url(struct layer_video *ctx, const char *url, SDL_Color *key)
 	if (!url || !*url)
 		return;
 
-	/* FIXME: must save color key in structure */
-	if (key) {
-		SDL_SetColorKey(ctx->surf, SDL_SRCCOLORKEY,
-				SDL_MapRGB(ctx->surf->format,
-					   key->r, key->g, key->b));
-	} else {
-		SDL_SetColorKey(ctx->surf, 0, 0);
-	}
-
 	m = libvlc_media_new_location(ctx->vlcinst, url);
 	ctx->mp = libvlc_media_player_new_from_media(m);
 	libvlc_media_release(m);
+
+	/*
+	 * FIXME: cannot let libvlc do the resizing and cannot set
+	 * the buffer size to the original video size since we don't
+	 * get the size easily with libvlc_video_get_size() or
+	 * libvlc_media_get_tracks_info()
+	 */
+	//libvlc_video_get_size(ctx->mp, 0, &width, &height);
+	width = screen->w; height = screen->h;
+
+	ctx->surf = SDL_CreateRGBSurface(SDL_HWSURFACE, width, height,
+					 16, 0x001f, 0x07e0, 0xf800, 0);
 
 	libvlc_video_set_callbacks(ctx->mp,
 				   layer_video_lock_cb, layer_video_unlock_cb,
 				   layer_video_display_cb,
 				   ctx);
 	libvlc_video_set_format(ctx->mp, "RV16",
-				ctx->surf->w,
-				ctx->surf->h,
-				ctx->surf->w*ctx->surf->format->BytesPerPixel);
+				ctx->surf->w, ctx->surf->h,
+				ctx->surf->pitch);
 
 	libvlc_media_player_play(ctx->mp);
 }
@@ -796,21 +772,39 @@ layer_video_url(struct layer_video *ctx, const char *url, SDL_Color *key)
 static void
 layer_video_alpha(struct layer_video *ctx, float opacity)
 {
-	Uint8 alpha = (Uint8)ceilf(opacity*SDL_ALPHA_OPAQUE);
 	ctx->alpha = opacity;
-
-	if (alpha == SDL_ALPHA_OPAQUE)
-		SDL_SetAlpha(ctx->surf, 0, 0);
-	else
-		SDL_SetAlpha(ctx->surf, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
 }
 
 static void
 layer_video_frame_cb(void *data, SDL_Surface *target)
 {
 	struct layer_video *ctx = data;
+	Uint8 alpha = (Uint8)ceilf(ctx->alpha*SDL_ALPHA_OPAQUE);
 
-	if (ctx->mp) {
+	if (!ctx->surf)
+		return;
+
+	if (ctx->surf->w != ctx->geo.w || ctx->surf->h != ctx->geo.h) {
+		SDL_Surface *surf_scaled;
+
+		SDL_LockMutex(ctx->mutex);
+		surf_scaled = zoomSurface(ctx->surf,
+					  (double)ctx->geo.w/ctx->surf->w,
+					  (double)ctx->geo.h/ctx->surf->h,
+					  SMOOTHING_ON);
+		SDL_UnlockMutex(ctx->mutex);
+
+		if (alpha < SDL_ALPHA_OPAQUE)
+			SDL_SetAlpha(surf_scaled, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
+
+		SDL_BlitSurface(surf_scaled, NULL, target, &ctx->geo);
+		SDL_FreeSurface(surf_scaled);
+	} else {
+		if (alpha == SDL_ALPHA_OPAQUE)
+			SDL_SetAlpha(ctx->surf, 0, 0);
+		else
+			SDL_SetAlpha(ctx->surf, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
+
 		SDL_LockMutex(ctx->mutex);
 		SDL_BlitSurface(ctx->surf, NULL, target, &ctx->geo);
 		SDL_UnlockMutex(ctx->mutex);
@@ -826,7 +820,8 @@ layer_video_free_cb(void *data)
 		libvlc_media_player_release(ctx->mp);
 	libvlc_release(ctx->vlcinst);
 	SDL_DestroyMutex(ctx->mutex);
-	SDL_FreeSurface(ctx->surf);
+	if (ctx->surf)
+		SDL_FreeSurface(ctx->surf);
 
 	free(ctx);
 }
