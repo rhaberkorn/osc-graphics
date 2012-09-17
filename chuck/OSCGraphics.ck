@@ -87,14 +87,14 @@ public class OSCGraphics {
 		return box;
 	}
 	fun static OSCGraphicsBox @
-	newBox(int pos, int geo[], int color[], float opacity)
+	newBox(int pos, int geo[], float opacity, int color[])
 	{
 		OSCGraphicsBox box;
 
-		box.init(osc_send, "box", "iiif", pos, "__box_"+free_id, geo);
+		box.init(osc_send, "box", "fiii", pos, "__box_"+free_id, geo);
+		opacity => osc_send.addFloat;
 		for (0 => int i; i < 3; i++)
 			color[i] => osc_send.addInt;
-		opacity => osc_send.addFloat;
 
 		free_id++;
 		return box;
@@ -102,17 +102,17 @@ public class OSCGraphics {
 	fun static OSCGraphicsBox @
 	newBox(int pos, int geo[], int color[])
 	{
-		return newBox(pos, geo, color, 1.);
+		return newBox(pos, geo, 1., color);
 	}
 	fun static OSCGraphicsBox @
 	newBox(int pos, int color[])
 	{
-		return newBox(pos, null, color, 1.);
+		return newBox(pos, null, 1., color);
 	}
 	fun static OSCGraphicsBox @
 	newBox(int color[])
 	{
-		return newBox(-1, null, color, 1.);
+		return newBox(-1, null, 1., color);
 	}
 
 }

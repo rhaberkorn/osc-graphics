@@ -51,6 +51,7 @@
 
 #define GEO_TYPES	"iiii"		/* x, y, width, height */
 #define NEW_LAYER_TYPES	"is" GEO_TYPES	/* position, name */
+#define COLOR_TYPES	"iii"		/* r, g, b */
 
 /*
  * Default values
@@ -85,10 +86,10 @@ static void layer_video_alpha(struct layer_video *ctx, float opacity);
 static void layer_video_frame_cb(void *data, SDL_Surface *target);
 static void layer_video_free_cb(void *data);
 
-static struct layer_box *layer_box_new(SDL_Rect rect, SDL_Color color,
-				       float opacity);
-static void layer_box_change(struct layer_box *ctx,
-			     SDL_Rect rect, SDL_Color color);
+static struct layer_box *layer_box_new(SDL_Rect geo, float opacity,
+				       SDL_Color color);
+static void layer_box_geo(struct layer_box *ctx, SDL_Rect geo);
+static void layer_box_color(struct layer_box *ctx, SDL_Color color);
 static void layer_box_alpha(struct layer_box *ctx, float opacity);
 static void layer_box_frame_cb(void *data, SDL_Surface *target);
 static void layer_box_free_cb(void *data);
@@ -301,12 +302,34 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 }
 
 static int
+osc_box_geo(const char *path, const char *types, lo_arg **argv,
+	    int argc, void *data, void *user_data)
+{
+	struct layer_box *ctx = user_data;
+
+	layer_box_geo(ctx, (SDL_Rect){
+		argv[0]->i, argv[1]->i, argv[2]->i, argv[3]->i
+	});
+	return 0;
+}
+
+static int
 osc_box_alpha(const char *path, const char *types, lo_arg **argv,
 	      int argc, void *data, void *user_data)
 {
 	struct layer_box *ctx = user_data;
 
 	layer_box_alpha(ctx, argv[0]->f);
+	return 0;
+}
+
+static int
+osc_box_color(const char *path, const char *types, lo_arg **argv,
+	      int argc, void *data, void *user_data)
+{
+	struct layer_box *ctx = user_data;
+
+	layer_box_color(ctx, (SDL_Color){argv[0]->i, argv[1]->i, argv[2]->i});
 	return 0;
 }
 
@@ -318,8 +341,14 @@ osc_box_delete(const char *path, const char *types, lo_arg **argv,
 	char buf[255], *name;
 
 	name = get_layer_name_from_path(path);
+
+	snprintf(buf, sizeof(buf), "/layer/%s/geo", name);
+	lo_server_del_method(server, buf, GEO_TYPES);
 	snprintf(buf, sizeof(buf), "/layer/%s/alpha", name);
 	lo_server_del_method(server, buf, "f");
+	snprintf(buf, sizeof(buf), "/layer/%s/color", name);
+	lo_server_del_method(server, buf, COLOR_TYPES);
+
 	free(name);
 
 	lo_server_del_method(server, path, types);
@@ -333,7 +362,7 @@ osc_box_new(const char *path, const char *types, lo_arg **argv,
 {
 	lo_server server = user_data;
 	char buf[255];
-	SDL_Rect rect = {
+	SDL_Rect geo = {
 		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
 	};
@@ -341,14 +370,19 @@ osc_box_new(const char *path, const char *types, lo_arg **argv,
 		(Uint8)argv[6]->i, (Uint8)argv[7]->i, (Uint8)argv[8]->i
 	};
 
-	struct layer_box *ctx = layer_box_new(rect, color, argv[9]->f);
+	struct layer_box *ctx = layer_box_new(geo, argv[9]->f, color);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_box_frame_cb, layer_box_free_cb))
 		return 0;
 
+	snprintf(buf, sizeof(buf), "/layer/%s/geo", &argv[1]->s);
+	lo_server_add_method(server, buf, GEO_TYPES, osc_box_geo, ctx);
 	snprintf(buf, sizeof(buf), "/layer/%s/alpha", &argv[1]->s);
 	lo_server_add_method(server, buf, "f", osc_box_alpha, ctx);
+	snprintf(buf, sizeof(buf), "/layer/%s/color", &argv[1]->s);
+	lo_server_add_method(server, buf, COLOR_TYPES, osc_box_color, ctx);
+
 	osc_add_layer_delete(server, &argv[1]->s, osc_box_delete);
 
 	return 0;
@@ -365,7 +399,7 @@ osc_init(const char *port)
 			     osc_image_new, server);
 	lo_server_add_method(server, "/layer/new/video", NEW_LAYER_TYPES "s",
 			     osc_video_new, server);
-	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES "iiif",
+	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES COLOR_TYPES "f",
 			     osc_box_new, server);
 
 	return server;
@@ -762,12 +796,13 @@ struct layer_box {
 };
 
 static struct layer_box *
-layer_box_new(SDL_Rect rect, SDL_Color color, float opacity)
+layer_box_new(SDL_Rect geo, float opacity, SDL_Color color)
 {
 	struct layer_box *ctx = malloc(sizeof(struct layer_box));
 
 	if (ctx) {
-		layer_box_change(ctx, rect, color);
+		layer_box_geo(ctx, geo);
+		layer_box_color(ctx, color);
 		layer_box_alpha(ctx, opacity);
 	}
 
@@ -775,13 +810,17 @@ layer_box_new(SDL_Rect rect, SDL_Color color, float opacity)
 }
 
 static void
-layer_box_change(struct layer_box *ctx, SDL_Rect rect, SDL_Color color)
+layer_box_geo(struct layer_box *ctx, SDL_Rect geo)
 {
-	ctx->x1 = rect.x;
-	ctx->y1 = rect.y;
-	ctx->x2 = rect.x + rect.w;
-	ctx->y2 = rect.y + rect.h;
+	ctx->x1 = geo.x;
+	ctx->y1 = geo.y;
+	ctx->x2 = geo.x + geo.w;
+	ctx->y2 = geo.y + geo.h;
+}
 
+static void
+layer_box_color(struct layer_box *ctx, SDL_Color color)
+{
 	ctx->r = color.r;
 	ctx->g = color.g;
 	ctx->b = color.b;
