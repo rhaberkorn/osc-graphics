@@ -113,6 +113,18 @@ lo_server_add_method_v(lo_server server, const char *types,
 }
 
 static void
+lo_server_del_method_v(lo_server server, const char *types, const char *fmt, ...)
+{
+	char buf[255];
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	lo_server_del_method(server, buf, types);
+	va_end(ap);
+}
+
+static void
 osc_error(int num, const char *msg, const char *path)
 {
 	fprintf(stderr, "liblo server error %d in path %s: %s\n", num, path, msg);
@@ -203,14 +215,12 @@ osc_image_delete(const char *path, const char *types, lo_arg **argv,
 		 int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
-	char buf[255], *name;
+	char *name;
 
 	name = get_layer_name_from_path(path);
 
-	snprintf(buf, sizeof(buf), "/layer/%s/geo", name);
-	lo_server_del_method(server, buf, GEO_TYPES);
-	snprintf(buf, sizeof(buf), "/layer/%s/alpha", name);
-	lo_server_del_method(server, buf, "f");
+	lo_server_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
+	lo_server_del_method_v(server, "f", "/layer/%s/alpha", name);
 
 	free(name);
 
@@ -272,14 +282,12 @@ osc_video_delete(const char *path, const char *types, lo_arg **argv,
 		 int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
-	char buf[255], *name;
+	char *name;
 
 	name = get_layer_name_from_path(path);
 
-	snprintf(buf, sizeof(buf), "/layer/%s/geo", name);
-	lo_server_del_method(server, buf, GEO_TYPES);
-	snprintf(buf, sizeof(buf), "/layer/%s/alpha", name);
-	lo_server_del_method(server, buf, "f");
+	lo_server_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
+	lo_server_del_method_v(server, "f", "/layer/%s/alpha", name);
 
 	free(name);
 
@@ -350,16 +358,13 @@ osc_box_delete(const char *path, const char *types, lo_arg **argv,
 	       int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
-	char buf[255], *name;
+	char *name;
 
 	name = get_layer_name_from_path(path);
 
-	snprintf(buf, sizeof(buf), "/layer/%s/geo", name);
-	lo_server_del_method(server, buf, GEO_TYPES);
-	snprintf(buf, sizeof(buf), "/layer/%s/alpha", name);
-	lo_server_del_method(server, buf, "f");
-	snprintf(buf, sizeof(buf), "/layer/%s/color", name);
-	lo_server_del_method(server, buf, COLOR_TYPES);
+	lo_server_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
+	lo_server_del_method_v(server, "f", "/layer/%s/alpha", name);
+	lo_server_del_method_v(server, COLOR_TYPES, "/layer/%s/color", name);
 
 	free(name);
 
