@@ -7,6 +7,7 @@
 #include <math.h>
 
 #include <SDL.h>
+#include <SDL_thread.h>
 #include <SDL_image.h>
 #include <SDL_framerate.h>
 #include <SDL_rotozoom.h>
@@ -14,6 +15,7 @@
 #include <SDL_gfxBlitFunc.h>
 
 #include <vlc/vlc.h>
+#include <vlc/libvlc_version.h>
 
 #include <lo/lo.h>
 
@@ -726,6 +728,50 @@ layer_video_geo(struct layer_video *ctx, SDL_Rect geo)
 		ctx->geo = geo;
 }
 
+#if LIBVLC_VERSION_INT < LIBVLC_VERSION(2,0,0,0)
+
+/*
+ * libvlc_video_get_size() cannot be used before playback has started and
+ * libvlc_media_get_tracks_info() is broken in libVLC v1.x.x so we just
+ * use the screen size on those versions (results in unnecessary scaling).
+ */
+static inline void
+media_get_video_size(libvlc_media_t *media,
+		     unsigned int *width, unsigned int *height)
+{
+	*width = screen->w;
+	*height = screen->h;
+}
+
+#else
+
+static inline void
+media_get_video_size(libvlc_media_t *media,
+		     unsigned int *width, unsigned int *height)
+{
+	libvlc_media_track_info_t *tracks = NULL;
+	int num_tracks;
+
+	*width = *height = 0;
+
+	libvlc_media_parse(media);
+
+	num_tracks = libvlc_media_get_tracks_info(media, &tracks);
+	for (int i = 0; i < num_tracks; i++) {
+		if (tracks[i].i_type == libvlc_track_video) {
+			*width = tracks[i].u.video.i_width;
+			*height = tracks[i].u.video.i_height;
+			break;
+		}
+	}
+
+	free(tracks);
+
+	assert(*width && *height);
+}
+
+#endif
+
 static void
 layer_video_url(struct layer_video *ctx, const char *url)
 {
@@ -744,17 +790,16 @@ layer_video_url(struct layer_video *ctx, const char *url)
 
 	m = libvlc_media_new_location(ctx->vlcinst, url);
 	ctx->mp = libvlc_media_player_new_from_media(m);
+	media_get_video_size(m, &width, &height);
 	libvlc_media_release(m);
 
 	/*
-	 * FIXME: cannot let libvlc do the resizing and cannot set
-	 * the buffer size to the original video size since we don't
-	 * get the size easily with libvlc_video_get_size() or
-	 * libvlc_media_get_tracks_info()
+	 * Cannot change buffer dimensions on the fly, so we let
+	 * libVLC render into a statically sized buffer and do the resizing
+	 * on our own.
+	 * We use the original video size so libVLC does not have to do
+	 * unnecessary scaling.
 	 */
-	//libvlc_video_get_size(ctx->mp, 0, &width, &height);
-	width = screen->w; height = screen->h;
-
 	ctx->surf = SDL_CreateRGBSurface(SDL_HWSURFACE, width, height,
 					 16, 0x001f, 0x07e0, 0xf800, 0);
 
