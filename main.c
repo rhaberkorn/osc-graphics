@@ -86,6 +86,9 @@ static struct layer_video *layer_video_new(SDL_Rect geo, float opacity,
 static void layer_video_geo(struct layer_video *ctx, SDL_Rect geo);
 static void layer_video_url(struct layer_video *ctx, const char *url);
 static void layer_video_alpha(struct layer_video *ctx, float opacity);
+static void layer_video_rate(struct layer_video *ctx, float rate);
+static void layer_video_position(struct layer_video *ctx, float position);
+static void layer_video_paused(struct layer_video *ctx, int paused);
 static void layer_video_frame_cb(void *data, SDL_Surface *target);
 static void layer_video_free_cb(void *data);
 
@@ -303,6 +306,36 @@ osc_video_url(const char *path, const char *types, lo_arg **argv,
 }
 
 static int
+osc_video_rate(const char *path, const char *types, lo_arg **argv,
+	       int argc, void *data, void *user_data)
+{
+	struct layer_video *ctx = user_data;
+
+	layer_video_rate(ctx, argv[0]->f);
+	return 0;
+}
+
+static int
+osc_video_position(const char *path, const char *types, lo_arg **argv,
+		   int argc, void *data, void *user_data)
+{
+	struct layer_video *ctx = user_data;
+
+	layer_video_position(ctx, argv[0]->f);
+	return 0;
+}
+
+static int
+osc_video_paused(const char *path, const char *types, lo_arg **argv,
+		 int argc, void *data, void *user_data)
+{
+	struct layer_video *ctx = user_data;
+
+	layer_video_paused(ctx, argv[0]->i);
+	return 0;
+}
+
+static int
 osc_video_delete(const char *path, const char *types, lo_arg **argv,
 		 int argc, void *data, void *user_data)
 {
@@ -314,6 +347,9 @@ osc_video_delete(const char *path, const char *types, lo_arg **argv,
 	lo_server_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
 	lo_server_del_method_v(server, "f", "/layer/%s/alpha", name);
 	lo_server_del_method_v(server, "s", "/layer/%s/url", name);
+	lo_server_del_method_v(server, "f", "/layer/%s/rate", name);
+	lo_server_del_method_v(server, "f", "/layer/%s/position", name);
+	lo_server_del_method_v(server, "i", "/layer/%s/paused", name);
 
 	free(name);
 
@@ -344,6 +380,12 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 			       "/layer/%s/alpha", &argv[1]->s);
 	lo_server_add_method_v(server, "s", osc_video_url, ctx,
 			       "/layer/%s/url", &argv[1]->s);
+	lo_server_add_method_v(server, "f", osc_video_rate, ctx,
+			       "/layer/%s/rate", &argv[1]->s);
+	lo_server_add_method_v(server, "f", osc_video_position, ctx,
+			       "/layer/%s/position", &argv[1]->s);
+	lo_server_add_method_v(server, "i", osc_video_paused, ctx,
+			       "/layer/%s/paused", &argv[1]->s);
 	osc_add_layer_delete(server, &argv[1]->s, osc_video_delete);
 
 	return 0;
@@ -661,6 +703,9 @@ struct layer_video {
 
 	SDL_Rect geo;
 	float alpha;
+
+	float rate;
+	int paused;
 };
 
 static void *
@@ -709,6 +754,8 @@ layer_video_new(SDL_Rect geo, float opacity, const char *url)
 
 	layer_video_geo(ctx, geo);
 	layer_video_alpha(ctx, opacity);
+	layer_video_rate(ctx, 1.);
+	layer_video_paused(ctx, 1);
 
 	ctx->mutex = SDL_CreateMutex();
 	ctx->vlcinst = libvlc_new(NARRAY(vlc_argv), vlc_argv);
@@ -811,13 +858,49 @@ layer_video_url(struct layer_video *ctx, const char *url)
 				ctx->surf->w, ctx->surf->h,
 				ctx->surf->pitch);
 
-	libvlc_media_player_play(ctx->mp);
+	layer_video_rate(ctx, ctx->rate);
+	layer_video_paused(ctx, ctx->paused);
 }
 
 static void
 layer_video_alpha(struct layer_video *ctx, float opacity)
 {
 	ctx->alpha = opacity;
+}
+
+static void
+layer_video_rate(struct layer_video *ctx, float rate)
+{
+	ctx->rate = rate;
+
+	if (ctx->mp)
+		libvlc_media_player_set_rate(ctx->mp, rate);
+}
+
+static void
+layer_video_position(struct layer_video *ctx, float position)
+{
+	if (ctx->mp)
+		libvlc_media_player_set_position(ctx->mp, position);
+}
+
+static void
+layer_video_paused(struct layer_video *ctx, int paused)
+{
+	ctx->paused = paused;
+
+	if (!ctx->mp)
+		return;
+
+#if 0
+	libvlc_media_player_set_pause(ctx->mp, paused);
+#else
+	int playing = libvlc_media_player_is_playing(ctx->mp);
+	if (playing && paused)
+		libvlc_media_player_pause(ctx->mp);
+	else if (!playing && !paused)
+		libvlc_media_player_play(ctx->mp);
+#endif
 }
 
 static void
