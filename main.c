@@ -1,3 +1,4 @@
+#include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -98,6 +99,20 @@ static SDL_Surface *screen;
 static int config_dump_osc = 0;
 
 static void
+lo_server_add_method_v(lo_server server, const char *types,
+		       lo_method_handler handler, void *data,
+		       const char *fmt, ...)
+{
+	char buf[255];
+	va_list ap;
+
+	va_start(ap, fmt);
+	vsnprintf(buf, sizeof(buf), fmt, ap);
+	lo_server_add_method(server, buf, types, handler, data);
+	va_end(ap);
+}
+
+static void
 osc_error(int num, const char *msg, const char *path)
 {
 	fprintf(stderr, "liblo server error %d in path %s: %s\n", num, path, msg);
@@ -154,13 +169,11 @@ static inline void
 osc_add_layer_delete(lo_server server, const char *name,
 		     lo_method_handler custom_delete)
 {
-	char path[255];
-
-	snprintf(path, sizeof(path), "/layer/%s/delete", name);
-
 	if (custom_delete)
-		lo_server_add_method(server, path, "", custom_delete, server);
-	lo_server_add_method(server, path, "", osc_layer_delete, server);
+		lo_server_add_method_v(server, "", custom_delete, server,
+				       "/layer/%s/delete", name);
+	lo_server_add_method_v(server, "", osc_layer_delete, server,
+			       "/layer/%s/delete", name);
 }
 
 static int
@@ -211,7 +224,6 @@ osc_image_new(const char *path, const char *types, lo_arg **argv,
 	      int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
-	char buf[255];
 	SDL_Rect geo = {
 		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
@@ -223,10 +235,11 @@ osc_image_new(const char *path, const char *types, lo_arg **argv,
 			 layer_image_frame_cb, layer_image_free_cb))
 		return 0;
 
-	snprintf(buf, sizeof(buf), "/layer/%s/geo", &argv[1]->s);
-	lo_server_add_method(server, buf, GEO_TYPES, osc_image_geo, ctx);
-	snprintf(buf, sizeof(buf), "/layer/%s/alpha", &argv[1]->s);
-	lo_server_add_method(server, buf, "f", osc_image_alpha, ctx);
+	lo_server_add_method_v(server, GEO_TYPES, osc_image_geo, ctx,
+			       "/layer/%s/geo", &argv[1]->s);
+	lo_server_add_method_v(server, "f", osc_image_alpha, ctx,
+			       "/layer/%s/alpha", &argv[1]->s);
+
 	osc_add_layer_delete(server, &argv[1]->s, osc_image_delete);
 
 	return 0;
@@ -280,7 +293,6 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 	      int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
-	char buf[255];
 	SDL_Rect geo = {
 		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
@@ -292,10 +304,10 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 			 layer_video_frame_cb, layer_video_free_cb))
 		return 0;
 
-	snprintf(buf, sizeof(buf), "/layer/%s/geo", &argv[1]->s);
-	lo_server_add_method(server, buf, GEO_TYPES, osc_video_geo, ctx);
-	snprintf(buf, sizeof(buf), "/layer/%s/alpha", &argv[1]->s);
-	lo_server_add_method(server, buf, "f", osc_video_alpha, ctx);
+	lo_server_add_method_v(server, GEO_TYPES, osc_video_geo, ctx,
+			       "/layer/%s/geo", &argv[1]->s);
+	lo_server_add_method_v(server, "f", osc_video_alpha, ctx,
+			       "/layer/%s/alpha", &argv[1]->s);
 	osc_add_layer_delete(server, &argv[1]->s, osc_video_delete);
 
 	return 0;
@@ -361,7 +373,6 @@ osc_box_new(const char *path, const char *types, lo_arg **argv,
 	    int argc, void *data, void *user_data)
 {
 	lo_server server = user_data;
-	char buf[255];
 	SDL_Rect geo = {
 		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
@@ -376,12 +387,12 @@ osc_box_new(const char *path, const char *types, lo_arg **argv,
 			 layer_box_frame_cb, layer_box_free_cb))
 		return 0;
 
-	snprintf(buf, sizeof(buf), "/layer/%s/geo", &argv[1]->s);
-	lo_server_add_method(server, buf, GEO_TYPES, osc_box_geo, ctx);
-	snprintf(buf, sizeof(buf), "/layer/%s/alpha", &argv[1]->s);
-	lo_server_add_method(server, buf, "f", osc_box_alpha, ctx);
-	snprintf(buf, sizeof(buf), "/layer/%s/color", &argv[1]->s);
-	lo_server_add_method(server, buf, COLOR_TYPES, osc_box_color, ctx);
+	lo_server_add_method_v(server, GEO_TYPES, osc_box_geo, ctx,
+			       "/layer/%s/geo", &argv[1]->s);
+	lo_server_add_method_v(server, "f", osc_box_alpha, ctx,
+			       "/layer/%s/alpha", &argv[1]->s);
+	lo_server_add_method_v(server, COLOR_TYPES, osc_box_color, ctx,
+			       "/layer/%s/color", &argv[1]->s);
 
 	osc_add_layer_delete(server, &argv[1]->s, osc_box_delete);
 
