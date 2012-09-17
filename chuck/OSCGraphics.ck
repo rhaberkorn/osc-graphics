@@ -17,30 +17,36 @@ public class OSCGraphics {
 		return img;
 	}
 	fun static OSCGraphicsImage @
-	newImage(int pos, int geo[], string file)
+	newImage(int pos, int geo[], float opacity, string file)
 	{
 		OSCGraphicsImage img;
 
-		img.init(osc_send, "image", "s", pos, "__image_"+free_id, geo);
+		img.init(osc_send, "image", "s",
+			 pos, "__image_"+free_id, geo, opacity);
 		file => osc_send.addString;
 
 		free_id++;
 		return img;
 	}
 	fun static OSCGraphicsImage @
+	newImage(int pos, int geo[], float opacity)
+	{
+		return newImage(pos, geo, opacity, "");
+	}
+	fun static OSCGraphicsImage @
 	newImage(int pos, int geo[])
 	{
-		return newImage(pos, geo, "");
+		return newImage(pos, geo, 1., "");
 	}
 	fun static OSCGraphicsImage @
 	newImage(int pos)
 	{
-		return newImage(pos, null, "");
+		return newImage(pos, null, 1., "");
 	}
 	fun static OSCGraphicsImage @
 	newImage()
 	{
-		return newImage(-1, null, "");
+		return newImage(-1, null, 1., "");
 	}
 
 	fun static OSCGraphicsVideo @
@@ -52,30 +58,36 @@ public class OSCGraphics {
 		return video;
 	}
 	fun static OSCGraphicsVideo @
-	newVideo(int pos, int geo[], string file)
+	newVideo(int pos, int geo[], float opacity, string file)
 	{
 		OSCGraphicsVideo video;
 
-		video.init(osc_send, "video", "s", pos, "__video_"+free_id, geo);
+		video.init(osc_send, "video", "s",
+			   pos, "__video_"+free_id, geo, opacity);
 		file => osc_send.addString;
 
 		free_id++;
 		return video;
 	}
 	fun static OSCGraphicsVideo @
+	newVideo(int pos, int geo[], float opacity)
+	{
+		return newVideo(pos, geo, 1., "");
+	}
+	fun static OSCGraphicsVideo @
 	newVideo(int pos, int geo[])
 	{
-		return newVideo(pos, geo, "");
+		return newVideo(pos, geo, 1., "");
 	}
 	fun static OSCGraphicsVideo @
 	newVideo(int pos)
 	{
-		return newVideo(pos, null, "");
+		return newVideo(pos, null, 1., "");
 	}
 	fun static OSCGraphicsVideo @
 	newVideo()
 	{
-		return newVideo(-1, null, "");
+		return newVideo(-1, null, 1., "");
 	}
 
 	fun static OSCGraphicsBox @
@@ -91,8 +103,8 @@ public class OSCGraphics {
 	{
 		OSCGraphicsBox box;
 
-		box.init(osc_send, "box", "fiii", pos, "__box_"+free_id, geo);
-		opacity => osc_send.addFloat;
+		box.init(osc_send, "box", "iii",
+			 pos, "__box_"+free_id, geo, opacity);
 		for (0 => int i; i < 3; i++)
 			color[i] => osc_send.addInt;
 
@@ -114,7 +126,6 @@ public class OSCGraphics {
 	{
 		return newBox(-1, null, 1., color);
 	}
-
 }
 /* static initialization */
 new OscSend @=> OSCGraphics.osc_send;

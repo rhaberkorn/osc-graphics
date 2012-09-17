@@ -50,9 +50,9 @@
 		__FILE__, __LINE__, ##__VA_ARGS__, IMG_GetError());	\
 } while (0)
 
-#define GEO_TYPES	"iiii"		/* x, y, width, height */
-#define NEW_LAYER_TYPES	"is" GEO_TYPES	/* position, name */
-#define COLOR_TYPES	"iii"		/* r, g, b */
+#define GEO_TYPES	"iiii"			/* x, y, width, height */
+#define NEW_LAYER_TYPES	"is" GEO_TYPES "f"	/* position, name, GEO, alpha */
+#define COLOR_TYPES	"iii"			/* r, g, b */
 
 /*
  * Default values
@@ -71,15 +71,16 @@ static int layer_insert(int pos, const char *name, void *data,
 			layer_frame_cb_t frame_cb, layer_free_cb_t free_cb);
 static int layer_delete_by_name(const char *name);
 
-static struct layer_image *layer_image_new(SDL_Rect geo, const char *file);
+static struct layer_image *layer_image_new(SDL_Rect geo, float opacity,
+					   const char *file);
 static void layer_image_geo(struct layer_image *ctx, SDL_Rect geo);
 static void layer_image_change(struct layer_image *ctx, const char *file);
 static void layer_image_alpha(struct layer_image *ctx, float opacity);
 static void layer_image_frame_cb(void *data, SDL_Surface *target);
 static void layer_image_free_cb(void *data);
 
-static struct layer_video *layer_video_new(SDL_Rect geo, const char *file,
-					   SDL_Color *key);
+static struct layer_video *layer_video_new(SDL_Rect geo, float opacity,
+					   const char *file, SDL_Color *key);
 static void layer_video_geo(struct layer_video *ctx, SDL_Rect geo);
 static void layer_video_change(struct layer_video *ctx,
 			       const char *file, SDL_Color *key);
@@ -239,7 +240,7 @@ osc_image_new(const char *path, const char *types, lo_arg **argv,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
 	};
 
-	struct layer_image *ctx = layer_image_new(geo, &argv[6]->s);
+	struct layer_image *ctx = layer_image_new(geo, argv[6]->f, &argv[7]->s);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_image_frame_cb, layer_image_free_cb))
@@ -306,7 +307,8 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
 	};
 
-	struct layer_video *ctx = layer_video_new(geo, &argv[6]->s, NULL);
+	struct layer_video *ctx = layer_video_new(geo, argv[6]->f,
+						  &argv[7]->s, NULL);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_video_frame_cb, layer_video_free_cb))
@@ -383,10 +385,10 @@ osc_box_new(const char *path, const char *types, lo_arg **argv,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
 	};
 	SDL_Color color = {
-		(Uint8)argv[6]->i, (Uint8)argv[7]->i, (Uint8)argv[8]->i
+		(Uint8)argv[7]->i, (Uint8)argv[8]->i, (Uint8)argv[9]->i
 	};
 
-	struct layer_box *ctx = layer_box_new(geo, argv[9]->f, color);
+	struct layer_box *ctx = layer_box_new(geo, argv[6]->f, color);
 
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_box_frame_cb, layer_box_free_cb))
@@ -415,7 +417,7 @@ osc_init(const char *port)
 			     osc_image_new, server);
 	lo_server_add_method(server, "/layer/new/video", NEW_LAYER_TYPES "s",
 			     osc_video_new, server);
-	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES COLOR_TYPES "f",
+	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES COLOR_TYPES,
 			     osc_box_new, server);
 
 	return server;
@@ -440,7 +442,7 @@ struct layer_image {
 };
 
 static struct layer_image *
-layer_image_new(SDL_Rect geo, const char *file)
+layer_image_new(SDL_Rect geo, float opacity, const char *file)
 {
 	struct layer_image *ctx = malloc(sizeof(struct layer_image));
 
@@ -449,7 +451,7 @@ layer_image_new(SDL_Rect geo, const char *file)
 
 	memset(ctx, 0, sizeof(*ctx));
 
-	layer_image_alpha(ctx, 1.);
+	layer_image_alpha(ctx, opacity);
 	layer_image_geo(ctx, geo);
 	layer_image_change(ctx, file);
 
@@ -666,7 +668,7 @@ layer_video_display_cb(void *data __attribute__((unused)), void *id)
 }
 
 static struct layer_video *
-layer_video_new(SDL_Rect geo, const char *file, SDL_Color *key)
+layer_video_new(SDL_Rect geo, float opacity, const char *file, SDL_Color *key)
 {
 	char const *vlc_argv[] = {
 		"--no-audio",	/* skip any audio track */
@@ -679,7 +681,7 @@ layer_video_new(SDL_Rect geo, const char *file, SDL_Color *key)
 
 	memset(ctx, 0, sizeof(*ctx));
 
-	ctx->alpha = 1.;
+	ctx->alpha = opacity;
 	ctx->mutex = SDL_CreateMutex();
 
 	layer_video_geo(ctx, geo);
