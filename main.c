@@ -74,16 +74,16 @@ static int layer_delete_by_name(const char *name);
 static struct layer_image *layer_image_new(SDL_Rect geo, float opacity,
 					   const char *file);
 static void layer_image_geo(struct layer_image *ctx, SDL_Rect geo);
-static void layer_image_change(struct layer_image *ctx, const char *file);
+static void layer_image_file(struct layer_image *ctx, const char *file);
 static void layer_image_alpha(struct layer_image *ctx, float opacity);
 static void layer_image_frame_cb(void *data, SDL_Surface *target);
 static void layer_image_free_cb(void *data);
 
 static struct layer_video *layer_video_new(SDL_Rect geo, float opacity,
-					   const char *file, SDL_Color *key);
+					   const char *url, SDL_Color *key);
 static void layer_video_geo(struct layer_video *ctx, SDL_Rect geo);
-static void layer_video_change(struct layer_video *ctx,
-			       const char *file, SDL_Color *key);
+static void layer_video_url(struct layer_video *ctx,
+			    const char *url, SDL_Color *key);
 static void layer_video_alpha(struct layer_video *ctx, float opacity);
 static void layer_video_frame_cb(void *data, SDL_Surface *target);
 static void layer_video_free_cb(void *data);
@@ -212,6 +212,16 @@ osc_image_alpha(const char *path, const char *types, lo_arg **argv,
 }
 
 static int
+osc_image_file(const char *path, const char *types, lo_arg **argv,
+	       int argc, void *data, void *user_data)
+{
+	struct layer_image *ctx = user_data;
+
+	layer_image_file(ctx, &argv[0]->s);
+	return 0;
+}
+
+static int
 osc_image_delete(const char *path, const char *types, lo_arg **argv,
 		 int argc, void *data, void *user_data)
 {
@@ -222,6 +232,7 @@ osc_image_delete(const char *path, const char *types, lo_arg **argv,
 
 	lo_server_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
 	lo_server_del_method_v(server, "f", "/layer/%s/alpha", name);
+	lo_server_del_method_v(server, "s", "/layer/%s/file", name);
 
 	free(name);
 
@@ -250,6 +261,8 @@ osc_image_new(const char *path, const char *types, lo_arg **argv,
 			       "/layer/%s/geo", &argv[1]->s);
 	lo_server_add_method_v(server, "f", osc_image_alpha, ctx,
 			       "/layer/%s/alpha", &argv[1]->s);
+	lo_server_add_method_v(server, "s", osc_image_file, ctx,
+			       "/layer/%s/file", &argv[1]->s);
 
 	osc_add_layer_delete(server, &argv[1]->s, osc_image_delete);
 
@@ -279,6 +292,16 @@ osc_video_alpha(const char *path, const char *types, lo_arg **argv,
 }
 
 static int
+osc_video_url(const char *path, const char *types, lo_arg **argv,
+	      int argc, void *data, void *user_data)
+{
+	struct layer_video *ctx = user_data;
+
+	layer_video_url(ctx, &argv[0]->s, NULL);
+	return 0;
+}
+
+static int
 osc_video_delete(const char *path, const char *types, lo_arg **argv,
 		 int argc, void *data, void *user_data)
 {
@@ -289,6 +312,7 @@ osc_video_delete(const char *path, const char *types, lo_arg **argv,
 
 	lo_server_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
 	lo_server_del_method_v(server, "f", "/layer/%s/alpha", name);
+	lo_server_del_method_v(server, "s", "/layer/%s/url", name);
 
 	free(name);
 
@@ -318,6 +342,8 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 			       "/layer/%s/geo", &argv[1]->s);
 	lo_server_add_method_v(server, "f", osc_video_alpha, ctx,
 			       "/layer/%s/alpha", &argv[1]->s);
+	lo_server_add_method_v(server, "s", osc_video_url, ctx,
+			       "/layer/%s/url", &argv[1]->s);
 	osc_add_layer_delete(server, &argv[1]->s, osc_video_delete);
 
 	return 0;
@@ -453,7 +479,7 @@ layer_image_new(SDL_Rect geo, float opacity, const char *file)
 
 	layer_image_alpha(ctx, opacity);
 	layer_image_geo(ctx, geo);
-	layer_image_change(ctx, file);
+	layer_image_file(ctx, file);
 
 	return ctx;
 }
@@ -488,7 +514,7 @@ layer_image_geo(struct layer_image *ctx, SDL_Rect geo)
 }
 
 static void
-layer_image_change(struct layer_image *ctx, const char *file)
+layer_image_file(struct layer_image *ctx, const char *file)
 {
 	SDL_FREESURFACE_SAFE(ctx->surf_alpha);
 	SDL_FREESURFACE_SAFE(ctx->surf_scaled);
@@ -668,7 +694,7 @@ layer_video_display_cb(void *data __attribute__((unused)), void *id)
 }
 
 static struct layer_video *
-layer_video_new(SDL_Rect geo, float opacity, const char *file, SDL_Color *key)
+layer_video_new(SDL_Rect geo, float opacity, const char *url, SDL_Color *key)
 {
 	char const *vlc_argv[] = {
 		"--no-audio",	/* skip any audio track */
@@ -689,7 +715,7 @@ layer_video_new(SDL_Rect geo, float opacity, const char *file, SDL_Color *key)
 	ctx->vlcinst = libvlc_new(NARRAY(vlc_argv), vlc_argv);
 	ctx->mp = NULL;
 
-	layer_video_change(ctx, file, key);
+	layer_video_url(ctx, url, key);
 
 	return ctx;
 }
@@ -730,7 +756,7 @@ layer_video_geo(struct layer_video *ctx, SDL_Rect geo)
 }
 
 static void
-layer_video_change(struct layer_video *ctx, const char *file, SDL_Color *key)
+layer_video_url(struct layer_video *ctx, const char *url, SDL_Color *key)
 {
 	libvlc_media_t *m;
 
@@ -739,7 +765,7 @@ layer_video_change(struct layer_video *ctx, const char *file, SDL_Color *key)
 		ctx->mp = NULL;
 	}
 
-	if (!file || !*file)
+	if (!url || !*url)
 		return;
 
 	/* FIXME: must save color key in structure */
@@ -751,7 +777,7 @@ layer_video_change(struct layer_video *ctx, const char *file, SDL_Color *key)
 		SDL_SetColorKey(ctx->surf, 0, 0);
 	}
 
-	m = libvlc_media_new_location(ctx->vlcinst, file);
+	m = libvlc_media_new_location(ctx->vlcinst, url);
 	ctx->mp = libvlc_media_player_new_from_media(m);
 	libvlc_media_release(m);
 

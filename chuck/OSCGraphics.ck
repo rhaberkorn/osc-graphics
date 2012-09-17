@@ -58,13 +58,13 @@ public class OSCGraphics {
 		return video;
 	}
 	fun static OSCGraphicsVideo @
-	newVideo(int pos, int geo[], float opacity, string file)
+	newVideo(int pos, int geo[], float opacity, string url)
 	{
 		OSCGraphicsVideo video;
 
 		video.init(osc_send, "video", "s",
 			   pos, "__video_"+free_id, geo, opacity);
-		file => osc_send.addString;
+		url => osc_send.addString;
 
 		free_id++;
 		return video;
