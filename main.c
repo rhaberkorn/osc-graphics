@@ -101,10 +101,11 @@ static void layer_box_frame_cb(void *data, SDL_Surface *target);
 static void layer_box_free_cb(void *data);
 
 static SDL_Surface *screen;
+static SDL_mutex *render_mutex;
 static int config_dump_osc = 0;
 
 static void
-lo_server_add_method_v(lo_server server, const char *types,
+lo_server_thread_add_method_v(lo_server_thread server, const char *types,
 		       lo_method_handler handler, void *data,
 		       const char *fmt, ...)
 {
@@ -113,19 +114,19 @@ lo_server_add_method_v(lo_server server, const char *types,
 
 	va_start(ap, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, ap);
-	lo_server_add_method(server, buf, types, handler, data);
+	lo_server_thread_add_method(server, buf, types, handler, data);
 	va_end(ap);
 }
 
 static void
-lo_server_del_method_v(lo_server server, const char *types, const char *fmt, ...)
+lo_server_thread_del_method_v(lo_server_thread server, const char *types, const char *fmt, ...)
 {
 	char buf[255];
 	va_list ap;
 
 	va_start(ap, fmt);
 	vsnprintf(buf, sizeof(buf), fmt, ap);
-	lo_server_del_method(server, buf, types);
+	lo_server_thread_del_method(server, buf, types);
 	va_end(ap);
 }
 
@@ -170,26 +171,26 @@ static int
 osc_layer_delete(const char *path, const char *types, lo_arg **argv,
 		 int argc, void *data, void *user_data)
 {
-	lo_server server = user_data;
+	lo_server_thread server = user_data;
 	char *name;
 
 	name = get_layer_name_from_path(path);
 	layer_delete_by_name(name);
 	free(name);
 
-	lo_server_del_method(server, path, types);
+	lo_server_thread_del_method(server, path, types);
 
 	return 1;
 }
 
 static inline void
-osc_add_layer_delete(lo_server server, const char *name,
+osc_add_layer_delete(lo_server_thread server, const char *name,
 		     lo_method_handler custom_delete)
 {
 	if (custom_delete)
-		lo_server_add_method_v(server, "", custom_delete, server,
+		lo_server_thread_add_method_v(server, "", custom_delete, server,
 				       "/layer/%s/delete", name);
-	lo_server_add_method_v(server, "", osc_layer_delete, server,
+	lo_server_thread_add_method_v(server, "", osc_layer_delete, server,
 			       "/layer/%s/delete", name);
 }
 
@@ -199,9 +200,11 @@ osc_image_geo(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_image *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_image_geo(ctx, (SDL_Rect){
 		argv[0]->i, argv[1]->i, argv[2]->i, argv[3]->i
 	});
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -211,7 +214,9 @@ osc_image_alpha(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_image *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_image_alpha(ctx, argv[0]->f);
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -221,7 +226,9 @@ osc_image_file(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_image *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_image_file(ctx, &argv[0]->s);
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -229,18 +236,18 @@ static int
 osc_image_delete(const char *path, const char *types, lo_arg **argv,
 		 int argc, void *data, void *user_data)
 {
-	lo_server server = user_data;
+	lo_server_thread server = user_data;
 	char *name;
 
 	name = get_layer_name_from_path(path);
 
-	lo_server_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
-	lo_server_del_method_v(server, "f", "/layer/%s/alpha", name);
-	lo_server_del_method_v(server, "s", "/layer/%s/file", name);
+	lo_server_thread_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
+	lo_server_thread_del_method_v(server, "f", "/layer/%s/alpha", name);
+	lo_server_thread_del_method_v(server, "s", "/layer/%s/file", name);
 
 	free(name);
 
-	lo_server_del_method(server, path, types);
+	lo_server_thread_del_method(server, path, types);
 
 	return 1;
 }
@@ -249,7 +256,7 @@ static int
 osc_image_new(const char *path, const char *types, lo_arg **argv,
 	      int argc, void *data, void *user_data)
 {
-	lo_server server = user_data;
+	lo_server_thread server = user_data;
 	SDL_Rect geo = {
 		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
@@ -257,15 +264,17 @@ osc_image_new(const char *path, const char *types, lo_arg **argv,
 
 	struct layer_image *ctx = layer_image_new(geo, argv[6]->f, &argv[7]->s);
 
+	SDL_LockMutex(render_mutex);
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_image_frame_cb, layer_image_free_cb))
 		return 0;
+	SDL_UnlockMutex(render_mutex);
 
-	lo_server_add_method_v(server, GEO_TYPES, osc_image_geo, ctx,
+	lo_server_thread_add_method_v(server, GEO_TYPES, osc_image_geo, ctx,
 			       "/layer/%s/geo", &argv[1]->s);
-	lo_server_add_method_v(server, "f", osc_image_alpha, ctx,
+	lo_server_thread_add_method_v(server, "f", osc_image_alpha, ctx,
 			       "/layer/%s/alpha", &argv[1]->s);
-	lo_server_add_method_v(server, "s", osc_image_file, ctx,
+	lo_server_thread_add_method_v(server, "s", osc_image_file, ctx,
 			       "/layer/%s/file", &argv[1]->s);
 
 	osc_add_layer_delete(server, &argv[1]->s, osc_image_delete);
@@ -279,9 +288,11 @@ osc_video_geo(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_video *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_video_geo(ctx, (SDL_Rect){
 		argv[0]->i, argv[1]->i, argv[2]->i, argv[3]->i
 	});
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -291,7 +302,9 @@ osc_video_alpha(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_video *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_video_alpha(ctx, argv[0]->f);
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -301,7 +314,9 @@ osc_video_url(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_video *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_video_url(ctx, &argv[0]->s);
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -311,7 +326,9 @@ osc_video_rate(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_video *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_video_rate(ctx, argv[0]->f);
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -321,7 +338,9 @@ osc_video_position(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_video *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_video_position(ctx, argv[0]->f);
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -331,7 +350,9 @@ osc_video_paused(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_video *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_video_paused(ctx, argv[0]->i);
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -339,21 +360,21 @@ static int
 osc_video_delete(const char *path, const char *types, lo_arg **argv,
 		 int argc, void *data, void *user_data)
 {
-	lo_server server = user_data;
+	lo_server_thread server = user_data;
 	char *name;
 
 	name = get_layer_name_from_path(path);
 
-	lo_server_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
-	lo_server_del_method_v(server, "f", "/layer/%s/alpha", name);
-	lo_server_del_method_v(server, "s", "/layer/%s/url", name);
-	lo_server_del_method_v(server, "f", "/layer/%s/rate", name);
-	lo_server_del_method_v(server, "f", "/layer/%s/position", name);
-	lo_server_del_method_v(server, "i", "/layer/%s/paused", name);
+	lo_server_thread_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
+	lo_server_thread_del_method_v(server, "f", "/layer/%s/alpha", name);
+	lo_server_thread_del_method_v(server, "s", "/layer/%s/url", name);
+	lo_server_thread_del_method_v(server, "f", "/layer/%s/rate", name);
+	lo_server_thread_del_method_v(server, "f", "/layer/%s/position", name);
+	lo_server_thread_del_method_v(server, "i", "/layer/%s/paused", name);
 
 	free(name);
 
-	lo_server_del_method(server, path, types);
+	lo_server_thread_del_method(server, path, types);
 
 	return 1;
 }
@@ -362,7 +383,7 @@ static int
 osc_video_new(const char *path, const char *types, lo_arg **argv,
 	      int argc, void *data, void *user_data)
 {
-	lo_server server = user_data;
+	lo_server_thread server = user_data;
 	SDL_Rect geo = {
 		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
@@ -370,21 +391,23 @@ osc_video_new(const char *path, const char *types, lo_arg **argv,
 
 	struct layer_video *ctx = layer_video_new(geo, argv[6]->f, &argv[7]->s);
 
+	SDL_LockMutex(render_mutex);
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_video_frame_cb, layer_video_free_cb))
 		return 0;
+	SDL_UnlockMutex(render_mutex);
 
-	lo_server_add_method_v(server, GEO_TYPES, osc_video_geo, ctx,
+	lo_server_thread_add_method_v(server, GEO_TYPES, osc_video_geo, ctx,
 			       "/layer/%s/geo", &argv[1]->s);
-	lo_server_add_method_v(server, "f", osc_video_alpha, ctx,
+	lo_server_thread_add_method_v(server, "f", osc_video_alpha, ctx,
 			       "/layer/%s/alpha", &argv[1]->s);
-	lo_server_add_method_v(server, "s", osc_video_url, ctx,
+	lo_server_thread_add_method_v(server, "s", osc_video_url, ctx,
 			       "/layer/%s/url", &argv[1]->s);
-	lo_server_add_method_v(server, "f", osc_video_rate, ctx,
+	lo_server_thread_add_method_v(server, "f", osc_video_rate, ctx,
 			       "/layer/%s/rate", &argv[1]->s);
-	lo_server_add_method_v(server, "f", osc_video_position, ctx,
+	lo_server_thread_add_method_v(server, "f", osc_video_position, ctx,
 			       "/layer/%s/position", &argv[1]->s);
-	lo_server_add_method_v(server, "i", osc_video_paused, ctx,
+	lo_server_thread_add_method_v(server, "i", osc_video_paused, ctx,
 			       "/layer/%s/paused", &argv[1]->s);
 	osc_add_layer_delete(server, &argv[1]->s, osc_video_delete);
 
@@ -397,9 +420,11 @@ osc_box_geo(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_box *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_box_geo(ctx, (SDL_Rect){
 		argv[0]->i, argv[1]->i, argv[2]->i, argv[3]->i
 	});
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -409,7 +434,9 @@ osc_box_alpha(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_box *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_box_alpha(ctx, argv[0]->f);
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -419,7 +446,9 @@ osc_box_color(const char *path, const char *types, lo_arg **argv,
 {
 	struct layer_box *ctx = user_data;
 
+	SDL_LockMutex(render_mutex);
 	layer_box_color(ctx, (SDL_Color){argv[0]->i, argv[1]->i, argv[2]->i});
+	SDL_UnlockMutex(render_mutex);
 	return 0;
 }
 
@@ -427,18 +456,18 @@ static int
 osc_box_delete(const char *path, const char *types, lo_arg **argv,
 	       int argc, void *data, void *user_data)
 {
-	lo_server server = user_data;
+	lo_server_thread server = user_data;
 	char *name;
 
 	name = get_layer_name_from_path(path);
 
-	lo_server_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
-	lo_server_del_method_v(server, "f", "/layer/%s/alpha", name);
-	lo_server_del_method_v(server, COLOR_TYPES, "/layer/%s/color", name);
+	lo_server_thread_del_method_v(server, GEO_TYPES, "/layer/%s/geo", name);
+	lo_server_thread_del_method_v(server, "f", "/layer/%s/alpha", name);
+	lo_server_thread_del_method_v(server, COLOR_TYPES, "/layer/%s/color", name);
 
 	free(name);
 
-	lo_server_del_method(server, path, types);
+	lo_server_thread_del_method(server, path, types);
 
 	return 1;
 }
@@ -447,7 +476,7 @@ static int
 osc_box_new(const char *path, const char *types, lo_arg **argv,
 	    int argc, void *data, void *user_data)
 {
-	lo_server server = user_data;
+	lo_server_thread server = user_data;
 	SDL_Rect geo = {
 		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
 		(Uint16)argv[4]->i, (Uint16)argv[5]->i
@@ -458,15 +487,17 @@ osc_box_new(const char *path, const char *types, lo_arg **argv,
 
 	struct layer_box *ctx = layer_box_new(geo, argv[6]->f, color);
 
+	SDL_LockMutex(render_mutex);
 	if (layer_insert(argv[0]->i, &argv[1]->s, ctx,
 			 layer_box_frame_cb, layer_box_free_cb))
 		return 0;
+	SDL_UnlockMutex(render_mutex);
 
-	lo_server_add_method_v(server, GEO_TYPES, osc_box_geo, ctx,
+	lo_server_thread_add_method_v(server, GEO_TYPES, osc_box_geo, ctx,
 			       "/layer/%s/geo", &argv[1]->s);
-	lo_server_add_method_v(server, "f", osc_box_alpha, ctx,
+	lo_server_thread_add_method_v(server, "f", osc_box_alpha, ctx,
 			       "/layer/%s/alpha", &argv[1]->s);
-	lo_server_add_method_v(server, COLOR_TYPES, osc_box_color, ctx,
+	lo_server_thread_add_method_v(server, COLOR_TYPES, osc_box_color, ctx,
 			       "/layer/%s/color", &argv[1]->s);
 
 	osc_add_layer_delete(server, &argv[1]->s, osc_box_delete);
@@ -474,27 +505,21 @@ osc_box_new(const char *path, const char *types, lo_arg **argv,
 	return 0;
 }
 
-static inline lo_server
+static inline lo_server_thread
 osc_init(const char *port)
 {
-	lo_server server = lo_server_new(port, osc_error);
+	lo_server_thread server = lo_server_thread_new(port, osc_error);
 
-	lo_server_add_method(server, NULL, NULL, osc_generic_handler, NULL);
+	lo_server_thread_add_method(server, NULL, NULL, osc_generic_handler, NULL);
 
-	lo_server_add_method(server, "/layer/new/image", NEW_LAYER_TYPES "s",
+	lo_server_thread_add_method(server, "/layer/new/image", NEW_LAYER_TYPES "s",
 			     osc_image_new, server);
-	lo_server_add_method(server, "/layer/new/video", NEW_LAYER_TYPES "s",
+	lo_server_thread_add_method(server, "/layer/new/video", NEW_LAYER_TYPES "s",
 			     osc_video_new, server);
-	lo_server_add_method(server, "/layer/new/box", NEW_LAYER_TYPES COLOR_TYPES,
+	lo_server_thread_add_method(server, "/layer/new/box", NEW_LAYER_TYPES COLOR_TYPES,
 			     osc_box_new, server);
 
 	return server;
-}
-
-static inline void
-osc_process_events(lo_server server)
-{
-	while (lo_server_recv_noblock(server, 0));
 }
 
 /*
@@ -1121,7 +1146,7 @@ layer_delete_by_name(const char *name)
 int
 main(int argc, char **argv)
 {
-	lo_server osc_server;
+	lo_server_thread osc_server;
 	FPSmanager fpsm;
 
 	osc_server = osc_init("7770");
@@ -1143,17 +1168,21 @@ main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+	render_mutex = SDL_CreateMutex();
+	lo_server_thread_start(osc_server);
+
 	SDL_initFramerate(&fpsm);
 	SDL_setFramerate(&fpsm, FRAMERATE);
 
 	for (;;) {
 		sdl_process_events();
-		osc_process_events(osc_server);
 
 		SDL_FillRect(screen, NULL, SDL_MapRGB(screen->format, 0, 0, 0));
 
+		SDL_LockMutex(render_mutex);
 		FOREACH_LAYER(cur)
 			cur->frame_cb(cur->data, screen);
+		SDL_UnlockMutex(render_mutex);
 
 		SDL_Flip(screen);
 		SDL_framerateDelay(&fpsm);
