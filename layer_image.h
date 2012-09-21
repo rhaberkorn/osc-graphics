@@ -1,5 +1,5 @@
-#ifndef __HAVE_LAYER_IMAGE_H
-#define __HAVE_LAYER_IMAGE_H
+#ifndef __LAYER_IMAGE_H
+#define __LAYER_IMAGE_H
 
 #include <stdlib.h>
 #include <stdio.h>

@@ -1,5 +1,5 @@
-#ifndef __HAVE_OSC_GRAPHICS_H
-#define __HAVE_OSC_GRAPHICS_H
+#ifndef __OSC_GRAPHICS_H
+#define __OSC_GRAPHICS_H
 
 #include <stdio.h>
 

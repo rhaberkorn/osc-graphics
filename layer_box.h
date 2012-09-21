@@ -1,5 +1,5 @@
-#ifndef __HAVE_LAYER_BOX_H
-#define __HAVE_LAYER_BOX_H
+#ifndef __LAYER_BOX_H
+#define __LAYER_BOX_H
 
 #include <SDL.h>
 

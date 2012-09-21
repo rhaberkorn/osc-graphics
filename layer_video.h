@@ -1,5 +1,5 @@
-#ifndef __HAVE_LAYER_VIDEO_H
-#define __HAVE_LAYER_VIDEO_H
+#ifndef __LAYER_VIDEO_H
+#define __LAYER_VIDEO_H
 
 #include <SDL.h>
 #include <SDL_thread.h>
