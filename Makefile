@@ -1,5 +1,6 @@
 PREFIX := /usr/local
 
+CXX := g++
 CC := gcc
 
 SDL_CFLAGS := $(shell sdl-config --cflags)
@@ -18,17 +19,18 @@ LIBLO_CFLAGS := $(shell pkg-config liblo --cflags)
 LIBLO_LDFLAGS := $(shell pkg-config liblo --libs)
 
 CFLAGS ?= -g -O0
-CFLAGS += -std=c99 -Wall \
+CFLAGS += -Wall \
 	  $(SDL_CFLAGS) $(SDL_IMAGE_CFLAGS) $(SDL_GFX_CFLAGS) \
 	  $(LIBVLC_CFLAGS) $(LIBLO_CFLAGS)
+CXXFLAGS := $(CFLAGS)
 LDFLAGS := -lm \
 	   $(SDL_LDFLAGS) $(SDL_IMAGE_LDFLAGS) $(SDL_GFX_LDFLAGS) \
 	   $(LIBVLC_LDFLAGS) $(LIBLO_LDFLAGS)
 
 all : osc-graphics
 
-osc-graphics : main.o
-	$(CC) $(LDFLAGS) $^ -o $@
+osc-graphics : main.o layer.o layer_box.o layer_image.o layer_video.o
+	$(CXX) $(LDFLAGS) $^ -o $@
 
 install : all
 	cp osc-graphics $(PREFIX)/bin
