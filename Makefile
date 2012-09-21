@@ -1,7 +1,7 @@
 PREFIX := /usr/local
 
-CXX := g++
 CC := gcc
+CXX := g++
 
 SDL_CFLAGS := $(shell sdl-config --cflags)
 SDL_LDFLAGS := $(shell sdl-config --libs)
@@ -23,14 +23,14 @@ CFLAGS += -Wall \
 	  $(SDL_CFLAGS) $(SDL_IMAGE_CFLAGS) $(SDL_GFX_CFLAGS) \
 	  $(LIBVLC_CFLAGS) $(LIBLO_CFLAGS)
 CXXFLAGS := $(CFLAGS)
-LDFLAGS := -lm \
+LDFLAGS := -lm -lsupc++ \
 	   $(SDL_LDFLAGS) $(SDL_IMAGE_LDFLAGS) $(SDL_GFX_LDFLAGS) \
 	   $(LIBVLC_LDFLAGS) $(LIBLO_LDFLAGS)
 
 all : osc-graphics
 
 osc-graphics : main.o layer.o layer_box.o layer_image.o layer_video.o
-	$(CXX) $(LDFLAGS) $^ -o $@
+	$(CC) $^ $(LDFLAGS) -o $@
 
 install : all
 	cp osc-graphics $(PREFIX)/bin
