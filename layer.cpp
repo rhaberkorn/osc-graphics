@@ -1,27 +1,24 @@
 #include <string.h>
+#include <bsd/sys/queue.h>
 
 #include <SDL.h>
 
 #include "osc_graphics.h"
 #include "layer.h"
 
-#define FOREACH_LAYER(VAR) \
-	for (Layer *VAR = head; VAR; VAR = VAR->next)
-
 void
 LayerList::insert(int pos, Layer *layer)
 {
-	Layer *cur, *prev = NULL;
+	Layer *cur, **prev;
 
 	lock();
 
-	for (cur = head; cur && pos; prev = cur, cur = cur->next, pos--);
+	SLIST_FOREACH_PREVPTR(cur, prev, &head, layers)
+		if (!pos--)
+			break;
 
-	layer->next = cur;
-	if (prev)
-		prev->next = layer;
-	else
-		head = layer;
+	SLIST_NEXT(layer, layers) = cur;
+	*prev = layer;
 
 	unlock();
 }
@@ -29,28 +26,20 @@ LayerList::insert(int pos, Layer *layer)
 bool
 LayerList::delete_by_name(const char *name)
 {
-	Layer *prev = NULL;
+	Layer *cur, **prev;
 
 	lock();
 
-	FOREACH_LAYER(cur) {
+	SLIST_FOREACH_PREVPTR(cur, prev, &head, layers)
 		if (!strcmp(cur->name, name)) {
-			if (prev)
-				prev->next = cur->next;
-			else
-				head = cur->next;
+			*prev = SLIST_NEXT(cur, layers);
 			delete cur;
-
-			unlock();
-			return false;
+			break;
 		}
-
-		prev = cur;
-	}
 
 	unlock();
 
-	return true;
+	return cur == NULL;
 }
 
 void
@@ -60,7 +49,8 @@ LayerList::render(SDL_Surface *target)
 
 	lock();
 
-	FOREACH_LAYER(cur) {
+	Layer *cur;
+	SLIST_FOREACH(cur, &head, layers) {
 		cur->lock();
 		cur->frame(target);
 		cur->unlock();

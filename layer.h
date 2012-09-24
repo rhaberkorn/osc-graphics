@@ -2,6 +2,7 @@
 #define __HAVE_LAYER_H
 
 #include <string.h>
+#include <bsd/sys/queue.h>
 
 #include <SDL.h>
 #include <SDL_thread.h>
@@ -10,7 +11,7 @@ class Layer {
 	SDL_mutex *mutex;
 
 public:
-	Layer *next;
+	SLIST_ENTRY(Layer) layers;
 
 	char *name;
 
@@ -43,7 +44,7 @@ public:
 };
 
 class LayerList {
-	Layer *head;
+	SLIST_HEAD(layers_head, Layer) head;
 
 	SDL_mutex *mutex;
 
@@ -59,8 +60,9 @@ class LayerList {
 	}
 
 public:
-	LayerList() : head(NULL)
+	LayerList()
 	{
+		SLIST_INIT(&head);
 		mutex = SDL_CreateMutex();
 	}
 	~LayerList()
