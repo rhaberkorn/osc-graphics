@@ -20,7 +20,7 @@ public:
 		mutex = SDL_CreateMutex();
 		Layer::name = strdup(name);
 	}
-	~Layer()
+	virtual ~Layer()
 	{
 		free(name);
 		SDL_DestroyMutex(mutex);
