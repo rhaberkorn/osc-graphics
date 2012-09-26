@@ -15,28 +15,15 @@ Layer::CtorInfo LayerVideo::ctor_info = {"video", "s" /* url */};
 
 libvlc_instance_t *LayerVideo::vlcinst = NULL;
 
-static void *
-lock_cb(void *data, void **p_pixels)
-{
-	LayerVideo *video = (LayerVideo *)data;
+/*
+ * libvlc callbacks
+ */
+extern "C" {
 
-	*p_pixels = video->lock_surf();
+static void *lock_cb(void *data, void **p_pixels);
+static void unlock_cb(void *data, void *id, void *const *p_pixels);
+static void display_cb(void *data, void *id);
 
-	return NULL; /* picture identifier, not needed here */
-}
-
-static void
-unlock_cb(void *data, void *id __attribute__((unused)), void *const *p_pixels)
-{
-	LayerVideo *video = (LayerVideo *)data;
-
-	video->unlock_surf();
-}
-
-static void
-display_cb(void *data __attribute__((unused)), void *id __attribute__((unused)))
-{
-	/* VLC wants to display the video */
 }
 
 LayerVideo::LayerVideo(const char *name, SDL_Rect geo, float opacity,
@@ -121,6 +108,32 @@ media_get_video_size(libvlc_media_t *media,
 }
 
 #endif
+
+static void *
+lock_cb(void *data, void **p_pixels)
+{
+	LayerVideo *video = (LayerVideo *)data;
+
+	*p_pixels = video->lock_surf();
+
+	return NULL; /* picture identifier, not needed here */
+}
+
+static void
+unlock_cb(void *data, void *id __attribute__((unused)),
+	  void *const *p_pixels)
+{
+	LayerVideo *video = (LayerVideo *)data;
+
+	video->unlock_surf();
+}
+
+static void
+display_cb(void *data __attribute__((unused)),
+	   void *id __attribute__((unused)))
+{
+	/* VLC wants to display the video */
+}
 
 void
 LayerVideo::url(const char *url)

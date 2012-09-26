@@ -10,6 +10,11 @@
 
 #include "osc_server.h"
 
+/*
+ * liblo callbacks
+ */
+extern "C" {
+
 static void error_handler(int num, const char *msg, const char *path);
 static int generic_handler(const char *path, const char *types, lo_arg **argv,
 			   int argc, void *data, void *user_data);
@@ -23,6 +28,8 @@ static int ctor_generic_handler(const char *path, const char *types,
 static int method_generic_handler(const char *path, const char *types,
 		       		  lo_arg **argv, int argc,
 		       		  void *data, void *user_data);
+
+}
 
 extern LayerList layers;
 
