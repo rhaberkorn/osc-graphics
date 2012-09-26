@@ -13,6 +13,8 @@
 
 Layer::CtorInfo LayerVideo::ctor_info = {"video", "s" /* url */};
 
+libvlc_instance_t *LayerVideo::vlcinst = NULL;
+
 static void *
 lock_cb(void *data, void **p_pixels)
 {
@@ -40,10 +42,15 @@ display_cb(void *data __attribute__((unused)), void *id __attribute__((unused)))
 LayerVideo::LayerVideo(const char *name, SDL_Rect geo, float opacity,
 	   	       const char *url) : Layer(name), mp(NULL), surf(NULL)
 {
-	char const *vlc_argv[] = {
-		"--no-audio",	/* skip any audio track */
-		"--no-xlib"	/* tell VLC to not use Xlib */
-	};
+	/* static initialization */
+	if (!vlcinst) {
+		static char const *vlc_argv[] = {
+			"--no-audio",	/* skip any audio track */
+			"--no-xlib"	/* tell VLC to not use Xlib */
+		};
+
+		vlcinst = libvlc_new(NARRAY(vlc_argv), vlc_argv);
+	}
 
 	url_osc_id = register_method("url", "s", (OSCServer::MethodHandlerCb)url_osc);
 	rate_osc_id = register_method("rate", "f", (OSCServer::MethodHandlerCb)rate_osc);
@@ -58,7 +65,6 @@ LayerVideo::LayerVideo(const char *name, SDL_Rect geo, float opacity,
 	LayerVideo::paused(true);
 
 	mutex = SDL_CreateMutex();
-	vlcinst = libvlc_new(NARRAY(vlc_argv), vlc_argv);
 
 	LayerVideo::url(url);
 }

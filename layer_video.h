@@ -12,7 +12,7 @@
 #include "layer.h"
 
 class LayerVideo : public Layer {
-	libvlc_instance_t *vlcinst;
+	static libvlc_instance_t *vlcinst;
 	libvlc_media_player_t *mp;
 
 	SDL_Surface *surf;
