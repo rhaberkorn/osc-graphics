@@ -11,9 +11,6 @@
 #include "osc_graphics.h"
 #include "layer.h"
 
-#define LayerVideo_Info_Name	"video"
-#define LayerVideo_Info_Types	"s"	/* url */
-
 class LayerVideo : public Layer {
 	libvlc_instance_t *vlcinst;
 	libvlc_media_player_t *mp;
@@ -28,17 +25,18 @@ class LayerVideo : public Layer {
 	bool pausedv;
 
 public:
-	static void register_layer() {}
-
 	LayerVideo(const char *name,
 		   SDL_Rect geo = (SDL_Rect){0, 0, 0, 0},
 		   float opacity = 1.,
 		   const char *url = NULL);
+
+	static CtorInfo ctor_info;
 	static Layer *
 	ctor_osc(const char *name, SDL_Rect geo, float opacity, lo_arg **argv)
 	{
 		return new LayerVideo(name, geo, opacity, &argv[0]->s);
 	}
+
 	~LayerVideo();
 
 	inline void *

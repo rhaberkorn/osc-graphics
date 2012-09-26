@@ -6,11 +6,7 @@
 #include <lo/lo.h>
 
 #include "osc_graphics.h"
-
 #include "layer.h"
-#include "layer_image.h"
-#include "layer_video.h"
-#include "layer_box.h"
 
 #include "osc_server.h"
 
@@ -58,69 +54,12 @@ generic_handler(const char *path, const char *types, lo_arg **argv,
 	return 1;
 }
 
-static int
-dtor_generic_handler(const char *path,
-		     const char *types __attribute__((unused)),
-		     lo_arg **argv __attribute__((unused)),
-		     int argc __attribute__((unused)),
-		     void *data __attribute__((unused)),
-		     void *user_data)
-{
-	Layer *layer = (Layer *)user_data;
-
-	/* FIXME: double-linked list allows more effecient layer delete */
-	layers.delete_by_name(layer->name);
-
-	osc_server.del_method("", "%s", path);
-
-	return 0;
-}
-
-static int
-ctor_generic_handler(const char *path __attribute__((unused)),
-		     const char *types __attribute__((unused)),
-		     lo_arg **argv, int argc,
-		     void *data __attribute__((unused)),
-		     void *user_data)
-{
-	OSCServer::ConstructorHandlerCb const_cb =
-				(OSCServer::ConstructorHandlerCb)user_data;
-	Layer *layer;
-
-	SDL_Rect geo = {
-		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
-		(Uint16)argv[4]->i, (Uint16)argv[5]->i
-	};
-
-	layer = const_cb(&argv[1]->s, geo, argv[6]->f, argv + 7);
-	layers.insert(argv[0]->i, layer);
-
-	osc_server.add_method("", dtor_generic_handler, layer,
-			      "/layer/%s/delete", layer->name);
-
-	return 0;
-}
-
-#define REGISTER_LAYER(CLASS)							\
-	do {									\
-		CLASS::register_layer();					\
-		add_method(NEW_LAYER_TYPES CLASS##_Info_Types,			\
-			   ctor_generic_handler, (void *)CLASS::ctor_osc,	\
-			   "/layer/new/%s", CLASS##_Info_Name);			\
-	} while (0)
-
 OSCServer::OSCServer(const char *port)
 {
 	server = lo_server_thread_new(port, error_handler);
 
 	add_method(NULL, generic_handler, NULL, "");
-
-	REGISTER_LAYER(LayerImage);
-	REGISTER_LAYER(LayerVideo);
-	REGISTER_LAYER(LayerBox);
 }
-
-#undef REGISTER_LAYER
 
 void
 OSCServer::add_method_v(MethodHandlerId **hnd, const char *types,
@@ -146,6 +85,59 @@ OSCServer::del_method(const char *types, const char *fmt, ...)
 	vsnprintf(buf, sizeof(buf), fmt, ap);
 	lo_server_thread_del_method(server, buf, types);
 	va_end(ap);
+}
+
+static int
+dtor_generic_handler(const char *path,
+		     const char *types __attribute__((unused)),
+		     lo_arg **argv __attribute__((unused)),
+		     int argc __attribute__((unused)),
+		     void *data __attribute__((unused)),
+		     void *user_data)
+{
+	Layer *layer = (Layer *)user_data;
+
+	/* FIXME: double-linked list allows more effecient layer delete */
+	layers.delete_by_name(layer->name);
+
+	osc_server.del_method("", "%s", path);
+
+	return 0;
+}
+
+static int
+ctor_generic_handler(const char *path __attribute__((unused)),
+		     const char *types __attribute__((unused)),
+		     lo_arg **argv, int argc,
+		     void *data __attribute__((unused)),
+		     void *user_data)
+{
+	OSCServer::CtorHandlerCb const_cb = (OSCServer::CtorHandlerCb)user_data;
+	Layer *layer;
+
+	SDL_Rect geo = {
+		(Sint16)argv[2]->i, (Sint16)argv[3]->i,
+		(Uint16)argv[4]->i, (Uint16)argv[5]->i
+	};
+
+	layer = const_cb(&argv[1]->s, geo, argv[6]->f, argv + 7);
+	layers.insert(argv[0]->i, layer);
+
+	osc_server.add_method("", dtor_generic_handler, layer,
+			      "/layer/%s/delete", layer->name);
+
+	return 0;
+}
+
+void
+OSCServer::register_layer(const char *name, const char *types,
+			  CtorHandlerCb ctor_cb)
+{
+	char buf[255];
+
+	snprintf(buf, sizeof(buf), "%s%s", NEW_LAYER_TYPES, types);
+	add_method(buf, ctor_generic_handler, (void *)ctor_cb,
+		   "/layer/new/%s", name);
 }
 
 struct OscMethodDefaultCtx {

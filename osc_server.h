@@ -41,8 +41,8 @@ private:
 
 public:
 	typedef void (*MethodHandlerCb)(Layer *obj, lo_arg **argv);
-	typedef Layer *(*ConstructorHandlerCb)(const char *name, SDL_Rect geo,
-					       float alpha, lo_arg **argv);
+	typedef Layer *(*CtorHandlerCb)(const char *name, SDL_Rect geo,
+					float alpha, lo_arg **argv);
 
 	OSCServer(const char *port);
 	~OSCServer();
@@ -86,6 +86,9 @@ public:
 		del_method(hnd->types, "%s", hnd->path);
 		delete hnd;
 	}
+
+	void register_layer(const char *name, const char *types,
+			    CtorHandlerCb ctor_cb);
 
 	MethodHandlerId *register_method(Layer *layer, const char *method,
 					 const char *types,

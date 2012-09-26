@@ -75,6 +75,11 @@ sdl_process_events(void)
 	}
 }
 
+#define REGISTER_LAYER(CLASS) \
+	osc_server.register_layer(CLASS::ctor_info.name, \
+				  CLASS::ctor_info.types, \
+				  CLASS::ctor_osc)
+
 int
 main(int argc, char **argv)
 {
@@ -94,6 +99,10 @@ main(int argc, char **argv)
 		SDL_ERROR("SDL_SetVideoMode");
 		return EXIT_FAILURE;
 	}
+
+	REGISTER_LAYER(LayerImage);
+	REGISTER_LAYER(LayerVideo);
+	REGISTER_LAYER(LayerBox);
 
 	osc_server.start();
 

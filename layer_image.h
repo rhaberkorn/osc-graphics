@@ -9,9 +9,6 @@
 #include "osc_graphics.h"
 #include "layer.h"
 
-#define LayerImage_Info_Name	"image"
-#define LayerImage_Info_Types	"s"	/* file */
-
 class LayerImage : public Layer {
 	SDL_Surface	*surf_alpha;	/* with per-surface alpha */
 	SDL_Surface	*surf_scaled;	/* scaled image */
@@ -21,17 +18,18 @@ class LayerImage : public Layer {
 	float		alphav;
 
 public:
-	static void register_layer() {}
-
 	LayerImage(const char *name,
 		   SDL_Rect geo = (SDL_Rect){0, 0, 0, 0},
 		   float opacity = 1.,
 		   const char *file = NULL);
+
+	static CtorInfo ctor_info;
 	static Layer *
 	ctor_osc(const char *name, SDL_Rect geo, float opacity, lo_arg **argv)
 	{
 		return new LayerImage(name, geo, opacity, &argv[0]->s);
 	}
+
 	~LayerImage();
 
 	void frame(SDL_Surface *target);

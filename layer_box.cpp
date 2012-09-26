@@ -6,10 +6,12 @@
 #include "osc_graphics.h"
 #include "layer_box.h"
 
+Layer::CtorInfo LayerBox::ctor_info = {"box", COLOR_TYPES};
+
 LayerBox::LayerBox(const char *name, SDL_Rect geo, float opacity,
 		   SDL_Color color) : Layer(name)
 {
-	color_osc_id = register_method("color", "iii",
+	color_osc_id = register_method("color", COLOR_TYPES,
 				       (OSCServer::MethodHandlerCb)color_osc);
 
 	LayerBox::geo(geo);

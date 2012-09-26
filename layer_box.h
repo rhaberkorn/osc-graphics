@@ -7,18 +7,17 @@
 #include "osc_server.h"
 #include "layer.h"
 
-#define LayerBox_Info_Name	"box"
-#define LayerBox_Info_Types	"iii"	/* r, g, b */
+#define COLOR_TYPES "iii" /* r, g, b */
 
 class LayerBox : public Layer {
 	Sint16 x1, y1, x2, y2;
 	Uint8 r, g, b, a;
 
 public:
-	static void register_layer() {}
-
 	LayerBox(const char *name, SDL_Rect geo, float opacity,
 		 SDL_Color color);
+
+	static CtorInfo ctor_info;
 	static Layer *
 	ctor_osc(const char *name, SDL_Rect geo, float opacity, lo_arg **argv)
 	{
@@ -27,6 +26,7 @@ public:
 		};
 		return new LayerBox(name, geo, opacity, color);
 	}
+
 	~LayerBox();
 
 	void frame(SDL_Surface *target);

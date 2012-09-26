@@ -11,6 +11,8 @@
 #include "osc_graphics.h"
 #include "layer_video.h"
 
+Layer::CtorInfo LayerVideo::ctor_info = {"video", "s" /* url */};
+
 static void *
 lock_cb(void *data, void **p_pixels)
 {

@@ -8,6 +8,8 @@
 #include "osc_graphics.h"
 #include "layer_image.h"
 
+Layer::CtorInfo LayerImage::ctor_info = {"image", "s" /* file */};
+
 #if 0
 
 static inline void

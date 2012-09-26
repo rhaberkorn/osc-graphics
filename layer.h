@@ -18,6 +18,15 @@ class Layer {
 	SDL_mutex *mutex;
 
 public:
+	/*
+	 * Every derived class must have a static CtorInfo struct "ctor_info"
+	 * and a static "ctor_osc" method
+	 */
+	struct CtorInfo {
+		const char *name;
+		const char *types;
+	};
+
 	SLIST_ENTRY(Layer) layers;
 
 	char *name;
