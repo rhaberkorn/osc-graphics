@@ -5,6 +5,9 @@
 
 #include <SDL.h>
 
+#include "osc_server.h"
+#include "layer.h"
+
 /*
  * Macros
  */
@@ -37,5 +40,7 @@
  * Declarations
  */
 extern SDL_Surface *screen;
+
+extern int config_dump_osc;
 
 #endif

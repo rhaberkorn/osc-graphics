@@ -57,6 +57,18 @@ rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
 
 #endif
 
+LayerImage::LayerImage(const char *name, SDL_Rect geo, float opacity,
+	   	       const char *file) : Layer(name), surf_alpha(NULL),
+	   	       			   surf_scaled(NULL), surf(NULL)
+{
+	file_osc_id = register_method("file", "s",
+				      (OscServer::MethodHandlerCb)file_osc);
+
+	LayerImage::alpha(opacity);
+	LayerImage::geo(geo);
+	LayerImage::file(file);
+}
+
 void
 LayerImage::geo(SDL_Rect geo)
 {
@@ -154,4 +166,13 @@ LayerImage::frame(SDL_Surface *target)
 	if (surf)
 		SDL_BlitSurface(surf_alpha ? : surf_scaled ? : surf, NULL,
 				target, &geov);
+}
+
+LayerImage::~LayerImage()
+{
+	unregister_method(file_osc_id);
+
+	SDL_FREESURFACE_SAFE(surf_alpha);
+	SDL_FREESURFACE_SAFE(surf_scaled);
+	SDL_FREESURFACE_SAFE(surf);
 }

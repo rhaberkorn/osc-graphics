@@ -43,6 +43,13 @@ LayerVideo::LayerVideo(const char *name, SDL_Rect geo, float opacity,
 		"--no-xlib"	/* tell VLC to not use Xlib */
 	};
 
+	url_osc_id = register_method("url", "s", (OscServer::MethodHandlerCb)url_osc);
+	rate_osc_id = register_method("rate", "f", (OscServer::MethodHandlerCb)rate_osc);
+	position_osc_id = register_method("position", "f",
+					  (OscServer::MethodHandlerCb)position_osc);
+	paused_osc_id = register_method("paused", "i",
+					(OscServer::MethodHandlerCb)paused_osc);
+
 	LayerVideo::geo(geo);
 	LayerVideo::alpha(opacity);
 	LayerVideo::rate(1.);
@@ -223,6 +230,11 @@ LayerVideo::frame(SDL_Surface *target)
 
 LayerVideo::~LayerVideo()
 {
+	unregister_method(url_osc_id);
+	unregister_method(rate_osc_id);
+	unregister_method(position_osc_id);
+	unregister_method(paused_osc_id);
+
 	if (mp)
 		libvlc_media_player_release(mp);
 	libvlc_release(vlcinst);

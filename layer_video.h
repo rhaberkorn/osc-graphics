@@ -4,10 +4,15 @@
 #include <SDL.h>
 #include <SDL_thread.h>
 
+#include <lo/lo.h>
+
 #include <vlc/vlc.h>
 
 #include "osc_graphics.h"
 #include "layer.h"
+
+#define LayerVideo_Info_Name	"video"
+#define LayerVideo_Info_Types	"s"	/* url */
 
 class LayerVideo : public Layer {
 	libvlc_instance_t *vlcinst;
@@ -23,10 +28,17 @@ class LayerVideo : public Layer {
 	bool pausedv;
 
 public:
+	static void register_layer() {}
+
 	LayerVideo(const char *name,
 		   SDL_Rect geo = (SDL_Rect){0, 0, 0, 0},
 		   float opacity = 1.,
 		   const char *url = NULL);
+	static Layer *
+	ctor_osc(const char *name, SDL_Rect geo, float opacity, lo_arg **argv)
+	{
+		return new LayerVideo(name, geo, opacity, &argv[0]->s);
+	}
 	~LayerVideo();
 
 	inline void *
@@ -43,15 +55,40 @@ public:
 		SDL_UnlockMutex(mutex);
 	}
 
+	void frame(SDL_Surface *target);
+
+private:
 	void geo(SDL_Rect geo);
 	void alpha(float opacity);
 
 	void url(const char *url = NULL);
+	OscServer::MethodHandlerId *url_osc_id;
+	static void
+	url_osc(LayerVideo *obj, lo_arg **argv)
+	{
+		obj->url(&argv[0]->s);
+	}
 	void rate(float rate);
+	OscServer::MethodHandlerId *rate_osc_id;
+	static void
+	rate_osc(LayerVideo *obj, lo_arg **argv)
+	{
+		obj->rate(argv[0]->f);
+	}
 	void position(float position);
+	OscServer::MethodHandlerId *position_osc_id;
+	static void
+	position_osc(LayerVideo *obj, lo_arg **argv)
+	{
+		obj->position(argv[0]->f);
+	}
 	void paused(bool paused);
-
-	void frame(SDL_Surface *target);
+	OscServer::MethodHandlerId *paused_osc_id;
+	static void
+	paused_osc(LayerVideo *obj, lo_arg **argv)
+	{
+		obj->paused(argv[0]->i);
+	}
 };
 
 #endif

@@ -6,6 +6,17 @@
 #include "osc_graphics.h"
 #include "layer_box.h"
 
+LayerBox::LayerBox(const char *name, SDL_Rect geo, float opacity,
+		   SDL_Color color) : Layer(name)
+{
+	color_osc_id = register_method("color", "iii",
+				       (OscServer::MethodHandlerCb)color_osc);
+
+	LayerBox::geo(geo);
+	LayerBox::color(color);
+	LayerBox::alpha(opacity);
+}
+
 void
 LayerBox::geo(SDL_Rect geo)
 {
@@ -26,4 +37,9 @@ LayerBox::frame(SDL_Surface *target)
 {
 	boxRGBA(target, x1, y1, x2 ? : target->w, y2 ? : target->h,
 		r, g, b, a);
+}
+
+LayerBox::~LayerBox()
+{
+	unregister_method(color_osc_id);
 }

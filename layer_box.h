@@ -4,34 +4,53 @@
 #include <SDL.h>
 
 #include "osc_graphics.h"
+#include "osc_server.h"
 #include "layer.h"
+
+#define LayerBox_Info_Name	"box"
+#define LayerBox_Info_Types	"iii"	/* r, g, b */
 
 class LayerBox : public Layer {
 	Sint16 x1, y1, x2, y2;
 	Uint8 r, g, b, a;
 
 public:
-	LayerBox(const char *name, SDL_Rect geo, float opacity,
-		 SDL_Color color) : Layer(name)
-	{
-		LayerBox::geo(geo);
-		LayerBox::color(color);
-		LayerBox::alpha(opacity);
-	}
+	static void register_layer() {}
 
+	LayerBox(const char *name, SDL_Rect geo, float opacity,
+		 SDL_Color color);
+	static Layer *
+	ctor_osc(const char *name, SDL_Rect geo, float opacity, lo_arg **argv)
+	{
+		SDL_Color color = {
+			(Uint8)argv[0]->i, (Uint8)argv[1]->i, (Uint8)argv[2]->i
+		};
+		return new LayerBox(name, geo, opacity, color);
+	}
+	~LayerBox();
+
+	void frame(SDL_Surface *target);
+
+private:
 	void geo(SDL_Rect geo);
 	void alpha(float opacity);
 
-	void
+	inline void
 	color(SDL_Color color)
 	{
 		r = color.r;
 		g = color.g;
 		b = color.b;
 	}
-
-
-	void frame(SDL_Surface *target);
+	OscServer::MethodHandlerId *color_osc_id;
+	static void
+	color_osc(LayerBox *obj, lo_arg **argv)
+	{
+		SDL_Color color = {
+			(Uint8)argv[0]->i, (Uint8)argv[1]->i, (Uint8)argv[2]->i
+		};
+		obj->color(color);
+	}
 };
 
 #endif

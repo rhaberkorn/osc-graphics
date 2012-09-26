@@ -9,6 +9,9 @@
 #include "osc_graphics.h"
 #include "layer.h"
 
+#define LayerImage_Info_Name	"image"
+#define LayerImage_Info_Types	"s"	/* file */
+
 class LayerImage : public Layer {
 	SDL_Surface	*surf_alpha;	/* with per-surface alpha */
 	SDL_Surface	*surf_scaled;	/* scaled image */
@@ -18,29 +21,32 @@ class LayerImage : public Layer {
 	float		alphav;
 
 public:
+	static void register_layer() {}
+
 	LayerImage(const char *name,
 		   SDL_Rect geo = (SDL_Rect){0, 0, 0, 0},
 		   float opacity = 1.,
-		   const char *file = NULL) : Layer(name), surf_alpha(NULL), surf_scaled(NULL), surf(NULL)
+		   const char *file = NULL);
+	static Layer *
+	ctor_osc(const char *name, SDL_Rect geo, float opacity, lo_arg **argv)
 	{
-		LayerImage::alpha(opacity);
-		LayerImage::geo(geo);
-		LayerImage::file(file);
+		return new LayerImage(name, geo, opacity, &argv[0]->s);
 	}
+	~LayerImage();
 
-	~LayerImage()
-	{
-		SDL_FREESURFACE_SAFE(surf_alpha);
-		SDL_FREESURFACE_SAFE(surf_scaled);
-		SDL_FREESURFACE_SAFE(surf);
-	}
+	void frame(SDL_Surface *target);
 
+private:
 	void geo(SDL_Rect geo);
 	void alpha(float opacity);
 
 	void file(const char *file = NULL);
-
-	void frame(SDL_Surface *target);
+	OscServer::MethodHandlerId *file_osc_id;
+	static void
+	file_osc(LayerImage *obj, lo_arg **argv)
+	{
+		obj->file(&argv[0]->s);
+	}
 };
 
 /*

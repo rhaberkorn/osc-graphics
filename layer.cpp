@@ -4,7 +4,17 @@
 #include <SDL.h>
 
 #include "osc_graphics.h"
+#include "osc_server.h"
 #include "layer.h"
+
+Layer::Layer(const char *name)
+{
+	mutex = SDL_CreateMutex();
+	Layer::name = strdup(name);
+
+	geo_osc_id = register_method("geo", GEO_TYPES, geo_osc);
+	alpha_osc_id = register_method("alpha", "f", alpha_osc);
+}
 
 void
 LayerList::insert(int pos, Layer *layer)
@@ -57,4 +67,13 @@ LayerList::render(SDL_Surface *target)
 	}
 
 	unlock();
+}
+
+Layer::~Layer()
+{
+	unregister_method(alpha_osc_id);
+	unregister_method(geo_osc_id);
+
+	free(name);
+	SDL_DestroyMutex(mutex);
 }

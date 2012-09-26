@@ -7,6 +7,13 @@
 #include <SDL.h>
 #include <SDL_thread.h>
 
+#include <lo/lo.h>
+
+#include "osc_graphics.h"
+#include "osc_server.h"
+
+extern OscServer osc_server;
+
 class Layer {
 	SDL_mutex *mutex;
 
@@ -15,16 +22,8 @@ public:
 
 	char *name;
 
-	Layer(const char *name)
-	{
-		mutex = SDL_CreateMutex();
-		Layer::name = strdup(name);
-	}
-	virtual ~Layer()
-	{
-		free(name);
-		SDL_DestroyMutex(mutex);
-	}
+	Layer(const char *name);
+	virtual ~Layer();
 
 	inline void
 	lock()
@@ -37,10 +36,50 @@ public:
 		SDL_UnlockMutex(mutex);
 	}
 
+	/*
+	 * Frame render method
+	 */
+	virtual void frame(SDL_Surface *target) = 0;
+
+protected:
+	inline OscServer::MethodHandlerId *
+	register_method(const char *method, const char *types,
+			OscServer::MethodHandlerCb method_cb)
+	{
+		return osc_server.register_method(this, method, types, method_cb);
+	}
+	inline void
+	unregister_method(OscServer::MethodHandlerId *hnd)
+	{
+		osc_server.unregister_method(hnd);
+	}
+
+	/*
+	 * Default methods
+	 */
 	virtual void geo(SDL_Rect geo) = 0;
 	virtual void alpha(float opacity) = 0;
 
-	virtual void frame(SDL_Surface *target) = 0;
+private:
+	/*
+	 * OSC handler methods
+	 */
+	OscServer::MethodHandlerId *geo_osc_id;
+	static void
+	geo_osc(Layer *obj, lo_arg **argv)
+	{
+		SDL_Rect geo = {
+			(Sint16)argv[0]->i, (Sint16)argv[1]->i,
+			(Uint16)argv[2]->i, (Uint16)argv[3]->i
+		};
+		obj->geo(geo);
+	}
+	OscServer::MethodHandlerId *alpha_osc_id;
+	static void
+	alpha_osc(Layer *obj, lo_arg **argv)
+	{
+		obj->alpha(argv[0]->f);
+	}
 };
 
 class LayerList {

@@ -29,7 +29,8 @@ LDFLAGS := -lm -lsupc++ \
 
 all : osc-graphics
 
-osc-graphics : main.o layer.o layer_box.o layer_image.o layer_video.o
+osc-graphics : main.o osc_server.o \
+	       layer.o layer_box.o layer_image.o layer_video.o
 	$(CC) $^ $(LDFLAGS) -o $@
 
 install : all
