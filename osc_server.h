@@ -37,7 +37,8 @@ public:
 private:
 	void add_method_v(MethodHandlerId **hnd, const char *types,
 			  lo_method_handler handler, void *data,
-			  const char *fmt, va_list ap);
+			  const char *fmt, va_list ap)
+			 __attribute__((format(printf, 6, 0)));
 
 public:
 	typedef void (*MethodHandlerCb)(Layer *obj, lo_arg **argv);
@@ -62,6 +63,7 @@ public:
 	add_method(MethodHandlerId **hnd, const char *types,
 		   lo_method_handler handler, void *data,
 		   const char *fmt, ...)
+		  __attribute__((format(printf, 6, 7)))
 	{
 		va_list ap;
 		va_start(ap, fmt);
@@ -72,6 +74,7 @@ public:
 	add_method(const char *types,
 		   lo_method_handler handler, void *data,
 		   const char *fmt, ...)
+		  __attribute__((format(printf, 5, 6)))
 	{
 		va_list ap;
 		va_start(ap, fmt);
@@ -79,7 +82,8 @@ public:
 		va_end(ap);
 	}
 
-	void del_method(const char *types, const char *fmt, ...);
+	void del_method(const char *types, const char *fmt, ...)
+		       __attribute__((format(printf, 3, 4)));
 	inline void
 	del_method(MethodHandlerId *hnd)
 	{

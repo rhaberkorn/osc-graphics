@@ -65,7 +65,7 @@ OSCServer::OSCServer(const char *port)
 {
 	server = lo_server_thread_new(port, error_handler);
 
-	add_method(NULL, generic_handler, NULL, "");
+	add_method(NULL, generic_handler, NULL, NULL);
 }
 
 void
@@ -75,8 +75,10 @@ OSCServer::add_method_v(MethodHandlerId **hnd, const char *types,
 {
 	char buf[255];
 
-	vsnprintf(buf, sizeof(buf), fmt, ap);
-	lo_server_thread_add_method(server, buf, types, handler, data);
+	if (fmt)
+		vsnprintf(buf, sizeof(buf), fmt, ap);
+	lo_server_thread_add_method(server, fmt ? buf : NULL, types,
+				    handler, data);
 
 	if (hnd)
 		*hnd = new MethodHandlerId(types, buf, data);
