@@ -12,7 +12,7 @@
 #include "osc_graphics.h"
 #include "osc_server.h"
 
-extern OscServer osc_server;
+extern OSCServer osc_server;
 
 class Layer {
 	SDL_mutex *mutex;
@@ -42,14 +42,14 @@ public:
 	virtual void frame(SDL_Surface *target) = 0;
 
 protected:
-	inline OscServer::MethodHandlerId *
+	inline OSCServer::MethodHandlerId *
 	register_method(const char *method, const char *types,
-			OscServer::MethodHandlerCb method_cb)
+			OSCServer::MethodHandlerCb method_cb)
 	{
 		return osc_server.register_method(this, method, types, method_cb);
 	}
 	inline void
-	unregister_method(OscServer::MethodHandlerId *hnd)
+	unregister_method(OSCServer::MethodHandlerId *hnd)
 	{
 		osc_server.unregister_method(hnd);
 	}
@@ -64,7 +64,7 @@ private:
 	/*
 	 * OSC handler methods
 	 */
-	OscServer::MethodHandlerId *geo_osc_id;
+	OSCServer::MethodHandlerId *geo_osc_id;
 	static void
 	geo_osc(Layer *obj, lo_arg **argv)
 	{
@@ -74,7 +74,7 @@ private:
 		};
 		obj->geo(geo);
 	}
-	OscServer::MethodHandlerId *alpha_osc_id;
+	OSCServer::MethodHandlerId *alpha_osc_id;
 	static void
 	alpha_osc(Layer *obj, lo_arg **argv)
 	{

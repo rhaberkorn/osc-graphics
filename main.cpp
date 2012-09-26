@@ -29,7 +29,7 @@
  */
 SDL_Surface *screen;
 
-OscServer osc_server(PORT);
+OSCServer osc_server(PORT);
 LayerList layers;
 
 int config_dump_osc = 0;

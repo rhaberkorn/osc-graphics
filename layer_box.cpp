@@ -10,7 +10,7 @@ LayerBox::LayerBox(const char *name, SDL_Rect geo, float opacity,
 		   SDL_Color color) : Layer(name)
 {
 	color_osc_id = register_method("color", "iii",
-				       (OscServer::MethodHandlerCb)color_osc);
+				       (OSCServer::MethodHandlerCb)color_osc);
 
 	LayerBox::geo(geo);
 	LayerBox::color(color);

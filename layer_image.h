@@ -41,7 +41,7 @@ private:
 	void alpha(float opacity);
 
 	void file(const char *file = NULL);
-	OscServer::MethodHandlerId *file_osc_id;
+	OSCServer::MethodHandlerId *file_osc_id;
 	static void
 	file_osc(LayerImage *obj, lo_arg **argv)
 	{

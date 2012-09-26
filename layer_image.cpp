@@ -62,7 +62,7 @@ LayerImage::LayerImage(const char *name, SDL_Rect geo, float opacity,
 	   	       			   surf_scaled(NULL), surf(NULL)
 {
 	file_osc_id = register_method("file", "s",
-				      (OscServer::MethodHandlerCb)file_osc);
+				      (OSCServer::MethodHandlerCb)file_osc);
 
 	LayerImage::alpha(opacity);
 	LayerImage::geo(geo);

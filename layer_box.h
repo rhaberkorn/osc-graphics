@@ -42,7 +42,7 @@ private:
 		g = color.g;
 		b = color.b;
 	}
-	OscServer::MethodHandlerId *color_osc_id;
+	OSCServer::MethodHandlerId *color_osc_id;
 	static void
 	color_osc(LayerBox *obj, lo_arg **argv)
 	{

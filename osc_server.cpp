@@ -83,8 +83,8 @@ ctor_generic_handler(const char *path __attribute__((unused)),
 		     void *data __attribute__((unused)),
 		     void *user_data)
 {
-	OscServer::ConstructorHandlerCb const_cb =
-				(OscServer::ConstructorHandlerCb)user_data;
+	OSCServer::ConstructorHandlerCb const_cb =
+				(OSCServer::ConstructorHandlerCb)user_data;
 	Layer *layer;
 
 	SDL_Rect geo = {
@@ -109,7 +109,7 @@ ctor_generic_handler(const char *path __attribute__((unused)),
 			   "/layer/new/%s", CLASS##_Info_Name);			\
 	} while (0)
 
-OscServer::OscServer(const char *port)
+OSCServer::OSCServer(const char *port)
 {
 	server = lo_server_thread_new(port, error_handler);
 
@@ -123,7 +123,7 @@ OscServer::OscServer(const char *port)
 #undef REGISTER_LAYER
 
 void
-OscServer::add_method_v(MethodHandlerId **hnd, const char *types,
+OSCServer::add_method_v(MethodHandlerId **hnd, const char *types,
 			lo_method_handler handler, void *data,
 			const char *fmt, va_list ap)
 {
@@ -137,7 +137,7 @@ OscServer::add_method_v(MethodHandlerId **hnd, const char *types,
 }
 
 void
-OscServer::del_method(const char *types, const char *fmt, ...)
+OSCServer::del_method(const char *types, const char *fmt, ...)
 {
 	char buf[255];
 	va_list ap;
@@ -150,7 +150,7 @@ OscServer::del_method(const char *types, const char *fmt, ...)
 
 struct OscMethodDefaultCtx {
 	Layer				*layer;
-	OscServer::MethodHandlerCb	method_cb;
+	OSCServer::MethodHandlerCb	method_cb;
 };
 
 static int
@@ -169,8 +169,8 @@ method_generic_handler(const char *path __attribute__((unused)),
 	return 0;
 }
 
-OscServer::MethodHandlerId *
-OscServer::register_method(Layer *layer, const char *method, const char *types,
+OSCServer::MethodHandlerId *
+OSCServer::register_method(Layer *layer, const char *method, const char *types,
 			   MethodHandlerCb method_cb)
 {
 	MethodHandlerId *hnd;
@@ -186,13 +186,13 @@ OscServer::register_method(Layer *layer, const char *method, const char *types,
 }
 
 void
-OscServer::unregister_method(MethodHandlerId *hnd)
+OSCServer::unregister_method(MethodHandlerId *hnd)
 {
 	delete (struct OscMethodDefaultCtx *)hnd->data;
 	del_method(hnd);
 }
 
-OscServer::~OscServer()
+OSCServer::~OSCServer()
 {
 	lo_server_thread_free(server);
 }

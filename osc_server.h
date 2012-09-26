@@ -12,7 +12,7 @@
 
 class Layer;
 
-class OscServer {
+class OSCServer {
 	lo_server_thread server;
 
 public:
@@ -44,8 +44,8 @@ public:
 	typedef Layer *(*ConstructorHandlerCb)(const char *name, SDL_Rect geo,
 					       float alpha, lo_arg **argv);
 
-	OscServer(const char *port);
-	~OscServer();
+	OSCServer(const char *port);
+	~OSCServer();
 
 	inline void
 	start()

@@ -62,28 +62,28 @@ private:
 	void alpha(float opacity);
 
 	void url(const char *url = NULL);
-	OscServer::MethodHandlerId *url_osc_id;
+	OSCServer::MethodHandlerId *url_osc_id;
 	static void
 	url_osc(LayerVideo *obj, lo_arg **argv)
 	{
 		obj->url(&argv[0]->s);
 	}
 	void rate(float rate);
-	OscServer::MethodHandlerId *rate_osc_id;
+	OSCServer::MethodHandlerId *rate_osc_id;
 	static void
 	rate_osc(LayerVideo *obj, lo_arg **argv)
 	{
 		obj->rate(argv[0]->f);
 	}
 	void position(float position);
-	OscServer::MethodHandlerId *position_osc_id;
+	OSCServer::MethodHandlerId *position_osc_id;
 	static void
 	position_osc(LayerVideo *obj, lo_arg **argv)
 	{
 		obj->position(argv[0]->f);
 	}
 	void paused(bool paused);
-	OscServer::MethodHandlerId *paused_osc_id;
+	OSCServer::MethodHandlerId *paused_osc_id;
 	static void
 	paused_osc(LayerVideo *obj, lo_arg **argv)
 	{
