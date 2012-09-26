@@ -33,14 +33,17 @@ LayerVideo::LayerVideo(const char *name, SDL_Rect geo, float opacity,
 	if (!vlcinst) {
 		static char const *vlc_argv[] = {
 			"--no-audio",	/* skip any audio track */
-			"--no-xlib"	/* tell VLC to not use Xlib */
+			"--no-xlib",	/* tell VLC to not use Xlib */
+			"--no-osd"	/* no text on video */
 		};
 
 		vlcinst = libvlc_new(NARRAY(vlc_argv), vlc_argv);
 	}
 
-	url_osc_id = register_method("url", "s", (OSCServer::MethodHandlerCb)url_osc);
-	rate_osc_id = register_method("rate", "f", (OSCServer::MethodHandlerCb)rate_osc);
+	url_osc_id = register_method("url", "s",
+				     (OSCServer::MethodHandlerCb)url_osc);
+	rate_osc_id = register_method("rate", "f",
+				      (OSCServer::MethodHandlerCb)rate_osc);
 	position_osc_id = register_method("position", "f",
 					  (OSCServer::MethodHandlerCb)position_osc);
 	paused_osc_id = register_method("paused", "i",
