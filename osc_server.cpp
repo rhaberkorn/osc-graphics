@@ -161,7 +161,7 @@ method_generic_handler(const char *path __attribute__((unused)),
 		       void *data __attribute__((unused)),
 		       void *user_data)
 {
-	struct OscMethodDefaultCtx *ctx = (struct OscMethodDefaultCtx *)user_data;
+	OscMethodDefaultCtx *ctx = (OscMethodDefaultCtx *)user_data;
 
 	ctx->layer->lock();
 	ctx->method_cb(ctx->layer, argv);
@@ -175,7 +175,7 @@ OSCServer::register_method(Layer *layer, const char *method, const char *types,
 			   MethodHandlerCb method_cb)
 {
 	MethodHandlerId *hnd;
-	struct OscMethodDefaultCtx *ctx = new struct OscMethodDefaultCtx;
+	OscMethodDefaultCtx *ctx = new OscMethodDefaultCtx;
 
 	ctx->layer = layer;
 	ctx->method_cb = method_cb;
@@ -189,7 +189,7 @@ OSCServer::register_method(Layer *layer, const char *method, const char *types,
 void
 OSCServer::unregister_method(MethodHandlerId *hnd)
 {
-	delete (struct OscMethodDefaultCtx *)hnd->data;
+	delete (OscMethodDefaultCtx *)hnd->data;
 	del_method(hnd);
 }
 
