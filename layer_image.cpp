@@ -3,6 +3,10 @@
 #include <SDL.h>
 #include <SDL_image.h>
 #include <SDL_rotozoom.h>
+
+/* HACK: older SDL_gfx versions define GFX_ALPHA_ADJUST in the header */
+#define GFX_ALPHA_ADJUST \
+	static __attribute__((unused)) GFX_ALPHA_ADJUST
 #include <SDL_gfxBlitFunc.h>
 
 #include "osc_graphics.h"
