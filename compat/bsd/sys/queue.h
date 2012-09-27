@@ -33,8 +33,6 @@
 #ifndef _SYS_QUEUE_H_
 #define	_SYS_QUEUE_H_
 
-#include <sys/cdefs.h>
-
 /*
  * This file defines four types of data structures: singly-linked lists,
  * singly-linked tail queues, lists and tail queues.
@@ -145,6 +143,9 @@ struct name {								\
 #define	SLIST_HEAD_INITIALIZER(head)					\
 	{ NULL }
 
+#ifdef SLIST_ENTRY
+#undef SLIST_ENTRY
+#endif
 #define	SLIST_ENTRY(type)						\
 struct {								\
 	struct type *sle_next;	/* next element */			\
