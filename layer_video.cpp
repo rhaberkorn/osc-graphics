@@ -4,6 +4,7 @@
 #include <SDL.h>
 #include <SDL_thread.h>
 #include <SDL_rotozoom.h>
+#include <SDL_gfxBlitFunc.h>
 
 #include <vlc/vlc.h>
 #include <vlc/libvlc_version.h>
@@ -154,7 +155,12 @@ LayerVideo::url(const char *url)
 	if (!url || !*url)
 		return;
 
+#ifdef __WIN32__
+	/* URL handling somehow broken under Windows */
+	m = libvlc_media_new_path(vlcinst, url);
+#else
 	m = libvlc_media_new_location(vlcinst, url);
+#endif
 	mp = libvlc_media_player_new_from_media(m);
 	media_get_video_size(m, width, height);
 	libvlc_media_release(m);
@@ -235,7 +241,9 @@ LayerVideo::frame(SDL_Surface *target)
 					  SMOOTHING_ON);
 		SDL_UnlockMutex(mutex);
 
-		if (alpha < SDL_ALPHA_OPAQUE)
+		if (surf_scaled->format->Amask)
+			SDL_gfxMultiplyAlpha(surf_scaled, alpha);
+		else if (alpha < SDL_ALPHA_OPAQUE)
 			SDL_SetAlpha(surf_scaled, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
 
 		SDL_BlitSurface(surf_scaled, NULL, target, &geov);
