@@ -27,7 +27,7 @@ public:
 		const char *types;
 	};
 
-	SLIST_ENTRY(Layer) layers;
+	LIST_ENTRY(Layer) layers;
 
 	char *name;
 
@@ -92,7 +92,7 @@ private:
 };
 
 class LayerList {
-	SLIST_HEAD(layers_head, Layer) head;
+	LIST_HEAD(layers_head, Layer) head;
 
 	SDL_mutex *mutex;
 
@@ -110,7 +110,7 @@ class LayerList {
 public:
 	LayerList() : mutex(SDL_CreateMutex())
 	{
-		SLIST_INIT(&head);
+		LIST_INIT(&head);
 	}
 	~LayerList()
 	{
@@ -118,7 +118,7 @@ public:
 	}
 
 	void insert(int pos, Layer *layer);
-	bool delete_by_name(const char *name);
+	void delete_layer(Layer *layer);
 	void render(SDL_Surface *target);
 };
 

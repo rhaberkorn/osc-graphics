@@ -16,37 +16,33 @@ Layer::Layer(const char *_name) : mutex(SDL_CreateMutex()), name(strdup(_name))
 void
 LayerList::insert(int pos, Layer *layer)
 {
-	Layer *cur, **prev;
+	Layer *cur, *prev = NULL;
 
 	lock();
 
-	SLIST_FOREACH_PREVPTR(cur, prev, &head, layers)
+	LIST_FOREACH(cur, &head, layers) {
 		if (!pos--)
 			break;
+		prev = cur;
+	}
 
-	SLIST_NEXT(layer, layers) = cur;
-	*prev = layer;
+	if (prev)
+		LIST_INSERT_AFTER(prev, layer, layers);
+	else
+		LIST_INSERT_HEAD(&head, layer, layers);
 
 	unlock();
 }
 
-bool
-LayerList::delete_by_name(const char *name)
+void
+LayerList::delete_layer(Layer *layer)
 {
-	Layer *cur, **prev;
-
 	lock();
-
-	SLIST_FOREACH_PREVPTR(cur, prev, &head, layers)
-		if (!strcmp(cur->name, name)) {
-			*prev = SLIST_NEXT(cur, layers);
-			delete cur;
-			break;
-		}
-
+	LIST_REMOVE(layer, layers);
 	unlock();
 
-	return cur == NULL;
+	/* layer is guaranteed not to be rendered */
+	delete layer;
 }
 
 void
@@ -57,7 +53,7 @@ LayerList::render(SDL_Surface *target)
 	lock();
 
 	Layer *cur;
-	SLIST_FOREACH(cur, &head, layers) {
+	LIST_FOREACH(cur, &head, layers) {
 		cur->lock();
 		cur->frame(target);
 		cur->unlock();

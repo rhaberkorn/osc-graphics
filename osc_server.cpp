@@ -107,9 +107,7 @@ dtor_generic_handler(const char *path,
 {
 	Layer *layer = (Layer *)user_data;
 
-	/* FIXME: double-linked list allows more effecient layer delete */
-	layers.delete_by_name(layer->name);
-
+	layers.delete_layer(layer);
 	osc_server.del_method("", "%s", path);
 
 	return 0;
