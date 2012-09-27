@@ -20,6 +20,7 @@ LIBLO_LDFLAGS := $(shell pkg-config liblo --libs)
 
 CFLAGS ?= -g -O0
 CFLAGS += -Wall \
+	  -Icompat \
 	  $(SDL_CFLAGS) $(SDL_IMAGE_CFLAGS) $(SDL_GFX_CFLAGS) \
 	  $(LIBVLC_CFLAGS) $(LIBLO_CFLAGS)
 CXXFLAGS := $(CFLAGS)
