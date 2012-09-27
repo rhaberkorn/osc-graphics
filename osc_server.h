@@ -45,8 +45,9 @@ public:
 	typedef Layer *(*CtorHandlerCb)(const char *name, SDL_Rect geo,
 					float alpha, lo_arg **argv);
 
-	OSCServer(const char *port);
 	~OSCServer();
+
+	void open(const char *port);
 
 	inline void
 	start()

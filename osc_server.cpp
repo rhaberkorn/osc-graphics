@@ -61,7 +61,8 @@ generic_handler(const char *path, const char *types, lo_arg **argv,
 	return 1;
 }
 
-OSCServer::OSCServer(const char *port)
+void
+OSCServer::open(const char *port)
 {
 	server = lo_server_thread_new(port, error_handler);
 
