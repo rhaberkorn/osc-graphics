@@ -193,6 +193,11 @@ main(int argc, char **argv)
 		return EXIT_FAILURE;
 	}
 
+#if DEFAULT_SDL_FLAGS & SDL_HWSURFACE
+	if (!(screen->flags & SDL_HWSURFACE))
+		fprintf(stderr, "Warning: Hardware surfaces not available!\n");
+#endif
+
 	SDL_ShowCursor(show_cursor);
 
 	osc_server.open(port);
