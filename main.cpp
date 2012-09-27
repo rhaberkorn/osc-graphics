@@ -179,6 +179,12 @@ main(int argc, char **argv)
 		      port, sdl_flags, show_cursor,
 		      width, height, bpp, framerate);
 
+#ifdef __WIN32__
+	/* disable SDL's stdio redirect */
+	freopen("CON", "w", stdout);
+	freopen("CON", "w", stderr);
+#endif
+
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		SDL_ERROR("SDL_Init");
 		return EXIT_FAILURE;
