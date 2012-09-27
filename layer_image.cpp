@@ -8,6 +8,7 @@
 #define GFX_ALPHA_ADJUST \
 	static __attribute__((unused)) GFX_ALPHA_ADJUST
 #include <SDL_gfxBlitFunc.h>
+#undef GFX_ALPHA_ADJUST
 
 #include "osc_graphics.h"
 #include "layer_image.h"

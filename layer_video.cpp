@@ -9,6 +9,7 @@
 #define GFX_ALPHA_ADJUST \
 	static __attribute__((unused)) GFX_ALPHA_ADJUST
 #include <SDL_gfxBlitFunc.h>
+#undef GFX_ALPHA_ADJUST
 
 #include <vlc/vlc.h>
 #include <vlc/libvlc_version.h>
