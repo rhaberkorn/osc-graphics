@@ -10,20 +10,6 @@
 
 Layer::CtorInfo LayerImage::ctor_info = {"image", "s" /* file */};
 
-#if 0
-
-static inline void
-rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
-{
-	SDL_FillRect(dst_surf, NULL,
-		     SDL_MapRGBA(dst_surf->format,
-				 0, 0, 0, SDL_ALPHA_TRANSPARENT));
-	SDL_gfxBlitRGBA(src_surf, NULL, dst_surf, NULL);
-	SDL_gfxMultiplyAlpha(dst_surf, alpha);
-}
-
-#else
-
 static inline void
 rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
 {
@@ -56,8 +42,6 @@ rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
 	SDL_MAYBE_UNLOCK(dst_surf);
 	SDL_MAYBE_UNLOCK(src_surf);
 }
-
-#endif
 
 LayerImage::LayerImage(const char *name, SDL_Rect geo, float opacity,
 		       const char *file) :
