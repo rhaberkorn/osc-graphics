@@ -4,6 +4,9 @@
 #include <SDL.h>
 #include <SDL_thread.h>
 #include <SDL_rotozoom.h>
+
+/* HACK: older SDL_gfx version defines GFX_ALPHA_ADJUST in the header */
+#define GFX_ALPHA_ADJUST LAYER_VIDEO_GFX_ALPHA_ADJUST
 #include <SDL_gfxBlitFunc.h>
 
 #include <vlc/vlc.h>
@@ -241,10 +244,14 @@ LayerVideo::frame(SDL_Surface *target)
 					  SMOOTHING_ON);
 		SDL_UnlockMutex(mutex);
 
-		if (surf_scaled->format->Amask)
-			SDL_gfxMultiplyAlpha(surf_scaled, alpha);
-		else if (alpha < SDL_ALPHA_OPAQUE)
-			SDL_SetAlpha(surf_scaled, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
+		if (alpha < SDL_ALPHA_OPAQUE) {
+			if (surf_scaled->format->Amask)
+				SDL_gfxSetAlpha(surf_scaled, alpha);
+			else
+				SDL_SetAlpha(surf_scaled,
+					     SDL_SRCALPHA | SDL_RLEACCEL,
+					     alpha);
+		}
 
 		SDL_BlitSurface(surf_scaled, NULL, target, &geov);
 		SDL_FreeSurface(surf_scaled);
