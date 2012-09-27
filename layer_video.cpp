@@ -5,8 +5,9 @@
 #include <SDL_thread.h>
 #include <SDL_rotozoom.h>
 
-/* HACK: older SDL_gfx version defines GFX_ALPHA_ADJUST in the header */
-#define GFX_ALPHA_ADJUST LAYER_VIDEO_GFX_ALPHA_ADJUST
+/* HACK: older SDL_gfx versions define GFX_ALPHA_ADJUST in the header */
+#define GFX_ALPHA_ADJUST \
+	static __attribute__((unused)) GFX_ALPHA_ADJUST
 #include <SDL_gfxBlitFunc.h>
 
 #include <vlc/vlc.h>
