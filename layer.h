@@ -108,10 +108,9 @@ class LayerList {
 	}
 
 public:
-	LayerList()
+	LayerList() : mutex(SDL_CreateMutex())
 	{
 		SLIST_INIT(&head);
-		mutex = SDL_CreateMutex();
 	}
 	~LayerList()
 	{

@@ -7,11 +7,8 @@
 #include "osc_server.h"
 #include "layer.h"
 
-Layer::Layer(const char *name)
+Layer::Layer(const char *_name) : mutex(SDL_CreateMutex()), name(strdup(_name))
 {
-	mutex = SDL_CreateMutex();
-	Layer::name = strdup(name);
-
 	geo_osc_id = register_method("geo", GEO_TYPES, geo_osc);
 	alpha_osc_id = register_method("alpha", "f", alpha_osc);
 }

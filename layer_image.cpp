@@ -17,7 +17,7 @@ rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
 {
 	SDL_FillRect(dst_surf, NULL,
 		     SDL_MapRGBA(dst_surf->format,
-		     	     	 0, 0, 0, SDL_ALPHA_TRANSPARENT));
+				 0, 0, 0, SDL_ALPHA_TRANSPARENT));
 	SDL_gfxBlitRGBA(src_surf, NULL, dst_surf, NULL);
 	SDL_gfxMultiplyAlpha(dst_surf, alpha);
 }
@@ -60,8 +60,9 @@ rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
 #endif
 
 LayerImage::LayerImage(const char *name, SDL_Rect geo, float opacity,
-	   	       const char *file) : Layer(name), surf_alpha(NULL),
-	   	       			   surf_scaled(NULL), surf(NULL)
+		       const char *file) :
+		      Layer(name),
+		      surf_alpha(NULL), surf_scaled(NULL), surf(NULL)
 {
 	file_osc_id = register_method("file", "s",
 				      (OSCServer::MethodHandlerCb)file_osc);
@@ -137,7 +138,7 @@ LayerImage::alpha(float opacity)
 	if (alpha == SDL_ALPHA_TRANSPARENT) {
 		SDL_FillRect(surf_alpha, NULL,
 			     SDL_MapRGBA(surf_alpha->format,
-			     	     	 0, 0, 0, SDL_ALPHA_TRANSPARENT));
+					 0, 0, 0, SDL_ALPHA_TRANSPARENT));
 	} else {
 		rgba_blit_with_alpha(use_surf, surf_alpha, alpha);
 	}

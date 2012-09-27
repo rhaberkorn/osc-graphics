@@ -27,7 +27,9 @@ static void display_cb(void *data, void *id);
 }
 
 LayerVideo::LayerVideo(const char *name, SDL_Rect geo, float opacity,
-	   	       const char *url) : Layer(name), mp(NULL), surf(NULL)
+		       const char *url) :
+		      Layer(name), mp(NULL), surf(NULL),
+		      mutex(SDL_CreateMutex())
 {
 	/* static initialization */
 	if (!vlcinst) {
@@ -53,8 +55,6 @@ LayerVideo::LayerVideo(const char *name, SDL_Rect geo, float opacity,
 	LayerVideo::alpha(opacity);
 	LayerVideo::rate(1.);
 	LayerVideo::paused(true);
-
-	mutex = SDL_CreateMutex();
 
 	LayerVideo::url(url);
 }

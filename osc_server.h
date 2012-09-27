@@ -21,12 +21,10 @@ public:
 		char	*path;
 		void	*data;
 
-		MethodHandlerId(const char *types, const char *path,
-				void *d = NULL) : data(d)
-		{
-			MethodHandlerId::types = strdup(types);
-			MethodHandlerId::path = strdup(path);
-		}
+		MethodHandlerId(const char *_types, const char *_path,
+				void *_data = NULL) :
+			       types(strdup(_types)), path(strdup(_path)),
+			       data(_data) {}
 		~MethodHandlerId()
 		{
 			free(types);
