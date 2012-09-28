@@ -71,8 +71,6 @@ PKG_CHECK_MODULES(LIBLO, [liblo], [
 	LIBS="$LIBS $LIBLO_LIBS"
 ])
 
-# FIXME: MinGW, need -lws2_32
-
 AC_CHECK_LIB([m], [ceilf])
 
 # Checks for header files.
