@@ -15,7 +15,10 @@ AC_CONFIG_HEADERS([config.h])
 AC_CANONICAL_BUILD
 AC_CANONICAL_HOST
 
-chuckdir=$datarootdir/$PACKAGE_TARNAME/chuck
+pkgdatadir=$datadir/$PACKAGE_TARNAME
+AC_SUBST(pkgdatadir)
+
+chuckdir=$pkgdatadir/chuck
 AC_SUBST(chuckdir)
 
 # Checks for programs.
@@ -23,6 +26,7 @@ AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_INSTALL
 AC_PROG_LIBTOOL
+AC_PROG_SED
 
 # Checks for libraries.
 AC_CHECK_PROG(SDL_CONFIG, sdl-config, sdl-config)
@@ -87,5 +91,4 @@ AC_CHECK_FUNCS([atexit strdup])
 CXXFLAGS="$CXXFLAGS $CFLAGS"
 
 AC_CONFIG_FILES([Makefile src/Makefile chuck/Makefile])
-AC_CONFIG_FILES([chuck/lib.ck])
 AC_OUTPUT

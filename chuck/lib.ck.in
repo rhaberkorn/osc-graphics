@@ -1,11 +1,7 @@
-"/usr/local" => string prefix;
+"@chuckdir@/OSCGraphicsPort.ck" => Machine.add;
+"@chuckdir@/OSCGraphicsLayer.ck" => Machine.add;
+"@chuckdir@/OSCGraphicsImage.ck" => Machine.add;
+"@chuckdir@/OSCGraphicsVideo.ck" => Machine.add;
+"@chuckdir@/OSCGraphicsBox.ck" => Machine.add;
 
-prefix+"/share/osc-graphics/chuck" => string path;
-
-path+"/OSCGraphicsPort.ck" => Machine.add;
-path+"/OSCGraphicsLayer.ck" => Machine.add;
-path+"/OSCGraphicsImage.ck" => Machine.add;
-path+"/OSCGraphicsVideo.ck" => Machine.add;
-path+"/OSCGraphicsBox.ck" => Machine.add;
-
-path+"/OSCGraphics.ck" => Machine.add;
+"@chuckdir@/OSCGraphics.ck" => Machine.add;
