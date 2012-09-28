@@ -1,6 +1,26 @@
+# Autotools
+/configure
+/config.h
+/config.h.in
+/config.log
+/config.status
+/config
+/aclocal.m4
+/autom4te.cache
+/libtool
+.deps/
+.libs/
+*.la
+*.lo
 *.o
 *.exe
-osc-graphics
+Makefile
+Makefile.in
+stamp-*
 
+/src/osc-graphics
+/chuck/lib.ck
+
+# Backup files
 *~
 
