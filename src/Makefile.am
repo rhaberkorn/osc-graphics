@@ -1,3 +1,5 @@
+CXXLD = @CC@
+
 AM_CXXFLAGS = -Wall
 AM_CPPFLAGS =
 
@@ -13,5 +15,4 @@ osc_graphics_SOURCES = main.cpp osc_graphics.h \
 		       layer_image.cpp layer_image.h \
 		       layer_video.cpp layer_video.h
 
-osc_graphics_LDFLAGS = -nodefaultlibs
-osc_graphics_LDADD = -lc -lsupc++ -lgcc -lgcc_eh
+osc_graphics_LDADD = -lsupc++
