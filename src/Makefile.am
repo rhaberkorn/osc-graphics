@@ -1,4 +1,9 @@
 AM_CXXFLAGS = -Wall
+AM_CPPFLAGS =
+
+if NEED_COMPAT
+AM_CPPFLAGS += -I@top_srcdir@/compat
+endif
 
 bin_PROGRAMS = osc-graphics
 osc_graphics_SOURCES = main.cpp osc_graphics.h \

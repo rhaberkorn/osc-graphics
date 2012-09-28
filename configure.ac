@@ -74,9 +74,8 @@ AC_CHECK_LIB([m], [ceilf])
 # Checks for header files.
 AC_CHECK_HEADERS([stdlib.h string.h])
 
-AC_CHECK_HEADERS([bsd/sys/queue.h], , [
-	CFLAGS="$CFLAGS -Icompat"
-])
+AC_CHECK_HEADERS([bsd/sys/queue.h])
+AM_CONDITIONAL(NEED_COMPAT, [test $ac_cv_header_bsd_sys_queue_h = no])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
