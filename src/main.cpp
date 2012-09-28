@@ -85,9 +85,11 @@ sdl_process_events(void)
 static void
 print_help(void)
 {
-	printf("osc-server [-h] [-p <port>] [-f] [-c] "
-			  "[-W <width>] [-H <height>] "
-			  "[-B <bpp>] [-F <framerate>]\n"
+	printf("%s (v%s)\n"
+	       "\n"
+	       "Usage: osc-server [-h] [-p <port>] [-f] [-c] "
+				 "[-W <width>] [-H <height>] "
+				 "[-B <bpp>] [-F <framerate>]\n"
 	       "Options:\n"
 	       "\t-h                 Show this help\n"
 	       "\t-p <port>          Listen on port <port> (default: %s)\n"
@@ -96,13 +98,18 @@ print_help(void)
 	       "\t-W <width>         Set screen width (default: %d)\n"
 	       "\t-H <height>        Set screen height (default: %d)\n"
 	       "\t-B <bpp>           Set screen Bits per Pixel (default: %d)\n"
-	       "\t-F <framerate>     Set framerate in Hz (default: %d)\n",
+	       "\t-F <framerate>     Set framerate in Hz (default: %d)\n"
+	       "\n"
+	       "Homepage: <%s>\n"
+	       "E-Mail: <%s>\n",
+	       PACKAGE_NAME, PACKAGE_VERSION,
 	       DEFAULT_PORT,
 	       BOOL2STR(DEFAULT_SDL_FLAGS & SDL_FULLSCREEN),
 	       BOOL2STR(DEFAULT_SHOW_CURSOR),
 	       DEFAULT_SCREEN_WIDTH, DEFAULT_SCREEN_HEIGHT,
 	       DEFAULT_SCREEN_BPP,
-	       DEFAULT_FRAMERATE);
+	       DEFAULT_FRAMERATE,
+	       PACKAGE_URL, PACKAGE_BUGREPORT);
 }
 
 static inline void
