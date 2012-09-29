@@ -22,10 +22,10 @@ chuckdir=$pkgdatadir/chuck
 AC_SUBST(chuckdir)
 
 # Checks for programs.
+LT_INIT
 AC_PROG_CXX
 AC_PROG_CC
 AC_PROG_INSTALL
-AC_PROG_LIBTOOL
 AC_PROG_SED
 
 # Checks for libraries.
@@ -33,11 +33,20 @@ AC_CHECK_PROG(SDL_CONFIG, sdl-config, sdl-config)
 if [[ x$SDL_CONFIG = x ]]; then
 	AC_MSG_ERROR([Required sdl-config tool missing!])
 fi
-CFLAGS="$CFLAGS `$SDL_CONFIG --cflags`"
+# Don't add to CFLAGS to prevent libtool wrappers being built with
+# -Dmain=SDL_main on MinGW
+#CFLAGS="$CFLAGS `$SDL_CONFIG --cflags`"
+CPPFLAGS="$CPPFLAGS `$SDL_CONFIG --cflags`"
 LIBS="$LIBS `$SDL_CONFIG --libs`"
+
+# On Windows, SDL adds -mwindows to LIBS
+case $build_os in
+*mingw*) LIBS="$LIBS -mconsole"
+esac
 
 PKG_CHECK_MODULES(SDL_IMAGE, [SDL_image], [
 	CFLAGS="$CFLAGS $SDL_IMAGE_CFLAGS"
+	CPPFLAGS="$CPPFLAGS $SDL_IMAGE_CFLAGS"
 	LIBS="$LIBS $SDL_IMAGE_LIBS"
 ], [
 	AC_CHECK_LIB(SDL_image, IMG_Load, , [
@@ -50,6 +59,7 @@ PKG_CHECK_MODULES(SDL_IMAGE, [SDL_image], [
 
 PKG_CHECK_MODULES(SDL_GFX, [SDL_gfx], [
 	CFLAGS="$CFLAGS $SDL_GFX_CFLAGS"
+	CPPFLAGS="$CPPFLAGS $SDL_GFX_CFLAGS"
 	LIBS="$LIBS $SDL_GFX_LIBS"
 ], [
 	AC_CHECK_LIB(SDL_gfx, boxRGBA, , [
@@ -63,11 +73,13 @@ PKG_CHECK_MODULES(SDL_GFX, [SDL_gfx], [
 
 PKG_CHECK_MODULES(LIBVLC, [libvlc >= 1.1.10], [
 	CFLAGS="$CFLAGS $LIBVLC_CFLAGS"
+	CPPFLAGS="$CPPFLAGS $LIBVLC_CFLAGS"
 	LIBS="$LIBS $LIBVLC_LIBS"
 ])
 
 PKG_CHECK_MODULES(LIBLO, [liblo], [
 	CFLAGS="$CFLAGS $LIBLO_CFLAGS"
+	CPPFLAGS="$CPPFLAGS $LIBLO_CFLAGS"
 	LIBS="$LIBS $LIBLO_LIBS"
 ])
 
