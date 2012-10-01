@@ -34,6 +34,13 @@
 /*
  * Declarations
  */
+extern "C" {
+
+int main(int argc, char **argv);
+static void cleanup(void);
+
+}
+
 SDL_Surface *screen;
 
 OSCServer osc_server;
@@ -194,7 +201,7 @@ main(int argc, char **argv)
 		SDL_ERROR("SDL_Init");
 		return EXIT_FAILURE;
 	}
-	atexit(SDL_Quit);
+	atexit(cleanup);
 
 	SDL_WM_SetCaption("OSC Graphics", NULL);
 
@@ -233,6 +240,12 @@ main(int argc, char **argv)
 
 	/* never reached */
 	return EXIT_FAILURE;
+}
+
+static void
+cleanup(void)
+{
+	SDL_Quit();
 }
 
 #if defined(__WIN32__) && defined(main)
