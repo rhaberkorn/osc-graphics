@@ -190,12 +190,6 @@ main(int argc, char **argv)
 		      port, sdl_flags, show_cursor,
 		      width, height, bpp, framerate);
 
-#ifdef __WIN32__
-	/* disable SDL's stdio redirect */
-	freopen("CON", "w", stdout);
-	freopen("CON", "w", stderr);
-#endif
-
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		SDL_ERROR("SDL_Init");
 		return EXIT_FAILURE;
@@ -240,3 +234,22 @@ main(int argc, char **argv)
 	/* never reached */
 	return EXIT_FAILURE;
 }
+
+#if defined(__WIN32__) && defined(main)
+#undef main
+/*
+ * Define a main() symbol, so that libmingw32 won't define it and libSDLmain's
+ * WinMain() is not called since that would initiate stdio redirection.
+ * Instead we call libSDLmain's console_main() which in turn calls
+ * the main() defined above which was renamed to SDL_main by SDL CFLAGS.
+ */
+
+extern "C" int console_main(int argc, char *argv[]);
+
+extern "C" int
+main(int argc, char *argv[])
+{
+	return console_main(argc, argv);
+}
+
+#endif
