@@ -8,49 +8,10 @@
 #include <SDL_image.h>
 #include <SDL_rotozoom.h>
 
-/* HACK: older SDL_gfx versions define GFX_ALPHA_ADJUST in the header */
-#define GFX_ALPHA_ADJUST \
-	static __attribute__((unused)) GFX_ALPHA_ADJUST
-#include <SDL_gfxBlitFunc.h>
-#undef GFX_ALPHA_ADJUST
-
 #include "osc_graphics.h"
 #include "layer_image.h"
 
 Layer::CtorInfo LayerImage::ctor_info = {"image", "s" /* file */};
-
-static inline void
-rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
-{
-	Uint8 *src = (Uint8 *)src_surf->pixels;
-	Uint8 *dst = (Uint8 *)dst_surf->pixels;
-	SDL_PixelFormat *fmt = src_surf->format;
-
-	int inc = fmt->BytesPerPixel;
-	int len = src_surf->w * src_surf->h;
-
-	SDL_MAYBE_LOCK(src_surf);
-	SDL_MAYBE_LOCK(dst_surf);
-
-	GFX_DUFFS_LOOP4({
-		register Uint32 pixel;
-		register int a;
-
-		pixel = *(Uint32 *)src;
-		a = ((pixel & fmt->Amask) >> fmt->Ashift) << fmt->Aloss;
-		a = (a*alpha)/SDL_ALPHA_OPAQUE;
-		a = (a << fmt->Aloss) << fmt->Ashift;
-		pixel &= ~fmt->Amask;
-		pixel |= a;
-		*(Uint32 *)dst = pixel;
-
-		src += inc;
-		dst += inc;
-	}, len)
-
-	SDL_MAYBE_UNLOCK(dst_surf);
-	SDL_MAYBE_UNLOCK(src_surf);
-}
 
 LayerImage::LayerImage(const char *name, SDL_Rect geo, float opacity,
 		       const char *file) :
@@ -128,13 +89,7 @@ LayerImage::alpha(float opacity)
 						  use_surf->format->Amask);
 	}
 
-	if (alpha == SDL_ALPHA_TRANSPARENT) {
-		SDL_FillRect(surf_alpha, NULL,
-			     SDL_MapRGBA(surf_alpha->format,
-					 0, 0, 0, SDL_ALPHA_TRANSPARENT));
-	} else {
-		rgba_blit_with_alpha(use_surf, surf_alpha, alpha);
-	}
+	rgba_blit_with_alpha(use_surf, surf_alpha, alpha);
 }
 
 void

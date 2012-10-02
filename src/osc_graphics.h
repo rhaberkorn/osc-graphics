@@ -43,4 +43,7 @@ extern SDL_Surface *screen;
 
 extern int config_dump_osc;
 
+void rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf,
+			  Uint8 alpha = SDL_ALPHA_TRANSPARENT);
+
 #endif

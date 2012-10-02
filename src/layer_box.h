@@ -7,8 +7,6 @@
 #include "osc_server.h"
 #include "layer.h"
 
-#define COLOR_TYPES "iii" /* r, g, b */
-
 class LayerBox : public Layer {
 	Sint16 x1, y1, x2, y2;
 	Uint8 r, g, b, a;

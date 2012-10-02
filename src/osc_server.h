@@ -102,4 +102,6 @@ public:
 #define GEO_TYPES	"iiii"			/* x, y, width, height */
 #define NEW_LAYER_TYPES	"is" GEO_TYPES "f"	/* position, name, GEO, alpha */
 
+#define COLOR_TYPES	"iii"			/* r, g, b */
+
 #endif

@@ -9,11 +9,18 @@
 #include <SDL.h>
 #include <SDL_framerate.h>
 
+/* HACK: older SDL_gfx versions define GFX_ALPHA_ADJUST in the header */
+#define GFX_ALPHA_ADJUST \
+	static __attribute__((unused)) GFX_ALPHA_ADJUST
+#include <SDL_gfxBlitFunc.h>
+#undef GFX_ALPHA_ADJUST
+
 #include "osc_graphics.h"
 #include "osc_server.h"
 
 #include "layer.h"
 #include "layer_box.h"
+#include "layer_text.h"
 #include "layer_image.h"
 #include "layer_video.h"
 
@@ -47,6 +54,46 @@ OSCServer osc_server;
 LayerList layers;
 
 int config_dump_osc = 0;
+
+void
+rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
+{
+	if (alpha == SDL_ALPHA_TRANSPARENT) {
+		SDL_FillRect(dst_surf, NULL,
+			     SDL_MapRGBA(dst_surf->format,
+					 0, 0, 0, SDL_ALPHA_TRANSPARENT));
+		return;
+	}
+
+	Uint8 *src = (Uint8 *)src_surf->pixels;
+	Uint8 *dst = (Uint8 *)dst_surf->pixels;
+	SDL_PixelFormat *fmt = src_surf->format;
+
+	int inc = fmt->BytesPerPixel;
+	int len = src_surf->w * src_surf->h;
+
+	SDL_MAYBE_LOCK(src_surf);
+	SDL_MAYBE_LOCK(dst_surf);
+
+	GFX_DUFFS_LOOP4({
+		register Uint32 pixel;
+		register int a;
+
+		pixel = *(Uint32 *)src;
+		a = ((pixel & fmt->Amask) >> fmt->Ashift) << fmt->Aloss;
+		a = (a*alpha)/SDL_ALPHA_OPAQUE;
+		a = (a << fmt->Aloss) << fmt->Ashift;
+		pixel &= ~fmt->Amask;
+		pixel |= a;
+		*(Uint32 *)dst = pixel;
+
+		src += inc;
+		dst += inc;
+	}, len)
+
+	SDL_MAYBE_UNLOCK(dst_surf);
+	SDL_MAYBE_UNLOCK(src_surf);
+}
 
 static inline void
 sdl_process_events(void)
@@ -223,6 +270,7 @@ main(int argc, char **argv)
 	REGISTER_LAYER(LayerImage);
 	REGISTER_LAYER(LayerVideo);
 	REGISTER_LAYER(LayerBox);
+	REGISTER_LAYER(LayerText);
 
 	osc_server.start();
 

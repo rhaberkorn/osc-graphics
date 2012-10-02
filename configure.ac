@@ -71,6 +71,13 @@ PKG_CHECK_MODULES(SDL_GFX, [SDL_gfx], [
 	])
 ])
 
+AC_CHECK_LIB(SDL_ttf, TTF_Init, , [
+	AC_MSG_ERROR([Required libSDL_ttf missing!])
+])
+AC_CHECK_HEADERS([SDL_ttf.h], , [
+	AC_MSG_ERROR([Required libSDL_ttf header missing!])
+])
+
 PKG_CHECK_MODULES(LIBVLC, [libvlc >= 1.1.10], [
 	CFLAGS="$CFLAGS $LIBVLC_CFLAGS"
 	CPPFLAGS="$CPPFLAGS $LIBVLC_CFLAGS"
