@@ -16,6 +16,9 @@ Layer::CtorInfo LayerText::ctor_info = {
 	COLOR_TYPES "ss"	/* r, g, b, text, font file */
 };
 
+/*
+ * Macros
+ */
 #define TTF_CLOSEFONT_SAFE(FONT) do {	\
 	if (FONT) {			\
 		TTF_CloseFont(FONT);	\

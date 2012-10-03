@@ -47,12 +47,4 @@ private:
 	}
 };
 
-/*
- * Macros
- */
-#define SDL_IMAGE_ERROR(FMT, ...) do {					\
-	fprintf(stderr, "%s(%d): " FMT ": %s\n",			\
-		__FILE__, __LINE__, ##__VA_ARGS__, IMG_GetError());	\
-} while (0)
-
 #endif
