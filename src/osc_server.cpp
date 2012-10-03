@@ -198,5 +198,6 @@ OSCServer::unregister_method(MethodHandlerId *hnd)
 
 OSCServer::~OSCServer()
 {
-	lo_server_thread_free(server);
+	if (server)
+		lo_server_thread_free(server);
 }
