@@ -5,7 +5,6 @@
 #include <bsd/sys/queue.h>
 
 #include <SDL.h>
-#include <SDL_thread.h>
 
 #include <lo/lo.h>
 
@@ -14,9 +13,7 @@
 
 extern OSCServer osc_server;
 
-class Layer {
-	SDL_mutex *mutex;
-
+class Layer : public Mutex {
 public:
 	/*
 	 * Every derived class must have a static CtorInfo struct "ctor_info"
@@ -33,17 +30,6 @@ public:
 
 	Layer(const char *name);
 	virtual ~Layer();
-
-	inline void
-	lock()
-	{
-		SDL_LockMutex(mutex);
-	}
-	inline void
-	unlock()
-	{
-		SDL_UnlockMutex(mutex);
-	}
 
 	/*
 	 * Frame render method
@@ -91,31 +77,15 @@ private:
 	}
 };
 
-class LayerList {
+class LayerList : Mutex {
 	LIST_HEAD(layers_head, Layer) head;
 
-	SDL_mutex *mutex;
-
-	inline void
-	lock()
-	{
-		SDL_LockMutex(mutex);
-	}
-	inline void
-	unlock()
-	{
-		SDL_UnlockMutex(mutex);
-	}
-
 public:
-	LayerList() : mutex(SDL_CreateMutex())
+	LayerList() : Mutex()
 	{
 		LIST_INIT(&head);
 	}
-	~LayerList()
-	{
-		SDL_DestroyMutex(mutex);
-	}
+	~LayerList();
 
 	void insert(int pos, Layer *layer);
 	void delete_layer(Layer *layer);

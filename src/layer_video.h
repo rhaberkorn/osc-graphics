@@ -2,7 +2,6 @@
 #define __LAYER_VIDEO_H
 
 #include <SDL.h>
-#include <SDL_thread.h>
 
 #include <lo/lo.h>
 
@@ -16,7 +15,7 @@ class LayerVideo : public Layer {
 	libvlc_media_player_t *mp;
 
 	SDL_Surface *surf;
-	SDL_mutex *mutex;
+	Mutex mutex;
 
 	SDL_Rect geov;
 	float alphav;
@@ -42,7 +41,7 @@ public:
 	inline void *
 	lock_surf()
 	{
-		SDL_LockMutex(mutex);
+		mutex.lock();
 		SDL_MAYBE_LOCK(surf);
 		return surf->pixels;
 	}
@@ -50,7 +49,7 @@ public:
 	unlock_surf()
 	{
 		SDL_MAYBE_UNLOCK(surf);
-		SDL_UnlockMutex(mutex);
+		mutex.unlock();
 	}
 
 	void frame(SDL_Surface *target);

@@ -11,10 +11,18 @@
 #include "osc_server.h"
 #include "layer.h"
 
-Layer::Layer(const char *_name) : mutex(SDL_CreateMutex()), name(strdup(_name))
+Layer::Layer(const char *_name) : Mutex(), name(strdup(_name))
 {
 	geo_osc_id = register_method("geo", GEO_TYPES, geo_osc);
 	alpha_osc_id = register_method("alpha", "f", alpha_osc);
+}
+
+Layer::~Layer()
+{
+	unregister_method(alpha_osc_id);
+	unregister_method(geo_osc_id);
+
+	free(name);
 }
 
 void
@@ -66,11 +74,12 @@ LayerList::render(SDL_Surface *target)
 	unlock();
 }
 
-Layer::~Layer()
+LayerList::~LayerList()
 {
-	unregister_method(alpha_osc_id);
-	unregister_method(geo_osc_id);
+	while (LIST_FIRST(&head)) {
+		Layer *layer = LIST_FIRST(&head);
 
-	free(name);
-	SDL_DestroyMutex(mutex);
+		LIST_REMOVE(layer, layers);
+		delete layer;
+	}
 }

@@ -126,5 +126,4 @@ Recorder::~Recorder()
 	osc_server.del_method("",  "/recorder/stop");
 
 	SDL_FFMPEGFREE_SAFE(file);
-	SDL_DestroyMutex(mutex);
 }

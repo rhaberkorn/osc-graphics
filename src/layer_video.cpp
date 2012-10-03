@@ -6,7 +6,6 @@
 #include <math.h>
 
 #include <SDL.h>
-#include <SDL_thread.h>
 #include <SDL_rotozoom.h>
 
 /* HACK: older SDL_gfx versions define GFX_ALPHA_ADJUST in the header */
@@ -37,9 +36,8 @@ static void display_cb(void *data, void *id);
 }
 
 LayerVideo::LayerVideo(const char *name, SDL_Rect geo, float opacity,
-		       const char *url) :
-		      Layer(name), mp(NULL), surf(NULL),
-		      mutex(SDL_CreateMutex())
+		       const char *url)
+		      : Layer(name), mp(NULL), surf(NULL)
 {
 	/* static initialization */
 	if (!vlcinst) {
@@ -243,12 +241,12 @@ LayerVideo::frame(SDL_Surface *target)
 	if (surf->w != geov.w || surf->h != geov.h) {
 		SDL_Surface *surf_scaled;
 
-		SDL_LockMutex(mutex);
+		mutex.lock();
 		surf_scaled = zoomSurface(surf,
 					  (double)geov.w/surf->w,
 					  (double)geov.h/surf->h,
 					  SMOOTHING_ON);
-		SDL_UnlockMutex(mutex);
+		mutex.unlock();
 
 		if (alpha < SDL_ALPHA_OPAQUE) {
 			if (surf_scaled->format->Amask)
@@ -267,9 +265,9 @@ LayerVideo::frame(SDL_Surface *target)
 		else
 			SDL_SetAlpha(surf, SDL_SRCALPHA | SDL_RLEACCEL, alpha);
 
-		SDL_LockMutex(mutex);
+		mutex.lock();
 		SDL_BlitSurface(surf, NULL, target, &geov);
-		SDL_UnlockMutex(mutex);
+		mutex.unlock();
 	}
 }
 
@@ -283,7 +281,6 @@ LayerVideo::~LayerVideo()
 	if (mp)
 		libvlc_media_player_release(mp);
 	libvlc_release(vlcinst);
-	SDL_DestroyMutex(mutex);
 	if (surf)
 		SDL_FreeSurface(surf);
 }

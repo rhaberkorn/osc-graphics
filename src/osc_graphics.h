@@ -4,6 +4,29 @@
 #include <stdio.h>
 
 #include <SDL.h>
+#include <SDL_thread.h>
+
+class Mutex {
+	SDL_mutex *mutex;
+
+public:
+	Mutex() : mutex(SDL_CreateMutex()) {}
+	virtual ~Mutex()
+	{
+		SDL_DestroyMutex(mutex);
+	}
+
+	inline void
+	lock()
+	{
+		SDL_LockMutex(mutex);
+	}
+	inline void
+	unlock()
+	{
+		SDL_UnlockMutex(mutex);
+	}
+};
 
 #include "osc_server.h"
 #include "layer.h"
