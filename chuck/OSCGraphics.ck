@@ -16,10 +16,11 @@ public class OSCGraphics {
 
 		return file;
 	}
-	fun static void
-	stopRecord()
+	fun static string
+	record()
 	{
 		osc_send.startMsg("/recorder/stop", "");
+		return "";
 	}
 
 	fun static OSCGraphicsImage @

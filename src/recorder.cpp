@@ -69,6 +69,11 @@ Recorder::start(const char *filename)
 		-1, 0, -1, -1, -1, -1	/* no audio */
 	};
 
+	if (!filename || !*filename) {
+		stop();
+		return;
+	}
+
 	lock();
 
 	SDL_FFMPEGFREE_SAFE(file);
