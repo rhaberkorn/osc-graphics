@@ -65,6 +65,10 @@ public:
 extern SDL_Surface *screen;
 
 extern int config_dump_osc;
+extern int config_framerate;
+
+#define FRAME_DELAY \
+	(1000/config_framerate) /* frame delay in ms */
 
 void rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf,
 			  Uint8 alpha = SDL_ALPHA_TRANSPARENT);

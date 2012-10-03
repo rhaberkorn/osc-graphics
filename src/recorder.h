@@ -8,6 +8,7 @@
 
 class Recorder : Mutex {
 	SDL_ffmpegFile *file;
+	Uint32 start_time;
 
 public:
 	Recorder() : Mutex(), file(NULL) {}

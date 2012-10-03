@@ -56,6 +56,7 @@ static Recorder	recorder;
 LayerList	layers;
 
 int config_dump_osc = 0;
+int config_framerate = DEFAULT_FRAMERATE;
 
 void
 rgba_blit_with_alpha(SDL_Surface *src_surf, SDL_Surface *dst_surf, Uint8 alpha)
@@ -240,11 +241,10 @@ main(int argc, char **argv)
 	int width		= DEFAULT_SCREEN_WIDTH;
 	int height		= DEFAULT_SCREEN_HEIGHT;
 	int bpp			= DEFAULT_SCREEN_BPP;
-	int framerate		= DEFAULT_FRAMERATE;
 
 	parse_options(argc, argv,
 		      port, sdl_flags, show_cursor,
-		      width, height, bpp, framerate);
+		      width, height, bpp, config_framerate);
 
 	if (SDL_Init(SDL_INIT_VIDEO)) {
 		SDL_ERROR("SDL_Init");
@@ -279,7 +279,7 @@ main(int argc, char **argv)
 	osc_server.start();
 
 	SDL_initFramerate(&fpsm);
-	SDL_setFramerate(&fpsm, framerate);
+	SDL_setFramerate(&fpsm, config_framerate);
 
 	for (;;) {
 		sdl_process_events();

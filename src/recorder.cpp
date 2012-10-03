@@ -2,11 +2,17 @@
 #include "config.h"
 #endif
 
+#define __STDC_CONSTANT_MACROS
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdint.h>
 
 #include <SDL.h>
 #include <SDL/SDL_ffmpeg.h>
+
+extern "C" {
+#include <libavcodec/avcodec.h>
+}
 
 #include "osc_graphics.h"
 #include "osc_server.h"
@@ -64,7 +70,7 @@ Recorder::start(const char *filename)
 	SDL_ffmpegCodec codec = {
 		-1,			/* video codec based on file name */
 		screen->w, screen->h,
-		1, 20 /* FIXME */,	/* framerate */
+		1, config_framerate,	/* framerate */
 		6000000, -1, -1,
 		-1, 0, -1, -1, -1, -1	/* no audio */
 	};
@@ -86,6 +92,8 @@ Recorder::start(const char *filename)
 
 	SDL_ffmpegAddVideoStream(file, codec);
 	SDL_ffmpegSelectVideoStream(file, 0);
+
+	start_time = SDL_GetTicks();
 
 	unlock();
 }
@@ -114,8 +122,15 @@ Recorder::record(SDL_Surface *surf)
 {
 	lock();
 
-	if (file)
-		SDL_ffmpegAddVideoFrame(file, surf);
+	if (file) {
+		struct AVFrame *frame = file->videoStream->encodeFrame;
+		int64_t pts = (SDL_GetTicks() - start_time)/FRAME_DELAY;
+
+		if (pts > frame->pts) {
+			frame->pts = pts;
+			SDL_ffmpegAddVideoFrame(file, surf);
+		}
+	}
 
 	unlock();
 }
