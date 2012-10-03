@@ -17,6 +17,7 @@
 
 #include "osc_graphics.h"
 #include "osc_server.h"
+#include "recorder.h"
 
 #include "layer.h"
 #include "layer_box.h"
@@ -50,8 +51,9 @@ static void cleanup(void);
 
 SDL_Surface *screen;
 
-OSCServer osc_server;
-LayerList layers;
+OSCServer	osc_server;
+static Recorder	recorder;
+LayerList	layers;
 
 int config_dump_osc = 0;
 
@@ -267,6 +269,8 @@ main(int argc, char **argv)
 
 	osc_server.open(port);
 
+	recorder.register_methods();
+
 	REGISTER_LAYER(LayerImage);
 	REGISTER_LAYER(LayerVideo);
 	REGISTER_LAYER(LayerBox);
@@ -281,6 +285,8 @@ main(int argc, char **argv)
 		sdl_process_events();
 
 		layers.render(screen);
+
+		recorder.record(screen);
 
 		SDL_Flip(screen);
 		SDL_framerateDelay(&fpsm);

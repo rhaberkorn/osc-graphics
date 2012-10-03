@@ -1,11 +1,25 @@
 public class OSCGraphics {
 	static OscSend @osc_send;
-	1 => static int free_id;
+	static int free_id;
 
 	fun static void
 	clear()
 	{
 		osc_send.startMsg("/layer/*/delete", "");
+	}
+
+	fun static string
+	record(string file)
+	{
+		osc_send.startMsg("/recorder/start", "s");
+		file => osc_send.addString;
+
+		return file;
+	}
+	fun static void
+	stopRecord()
+	{
+		osc_send.startMsg("/recorder/stop", "");
 	}
 
 	fun static OSCGraphicsImage @
@@ -165,3 +179,5 @@ public class OSCGraphics {
 /* static initialization */
 new OscSend @=> OSCGraphics.osc_send;
 OSCGraphics.osc_send.setHost("localhost", 7770);
+
+1 => OSCGraphics.free_id;
