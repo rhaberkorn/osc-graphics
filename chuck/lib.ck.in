@@ -3,5 +3,6 @@
 "@chuckdir@/OSCGraphicsImage.ck" => Machine.add;
 "@chuckdir@/OSCGraphicsVideo.ck" => Machine.add;
 "@chuckdir@/OSCGraphicsBox.ck" => Machine.add;
+"@chuckdir@/OSCGraphicsText.ck" => Machine.add;
 
 "@chuckdir@/OSCGraphics.ck" => Machine.add;

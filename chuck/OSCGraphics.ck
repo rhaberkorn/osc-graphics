@@ -126,6 +126,41 @@ public class OSCGraphics {
 	{
 		return newBox(-1, null, 1., color);
 	}
+
+	fun static OSCGraphicsText @
+	getText(string name)
+	{
+		OSCGraphicsText text;
+		osc_send @=> text.osc_send;
+		name => text.name;
+		return text;
+	}
+	fun static OSCGraphicsText @
+	newText(int pos, int geo[], float opacity, int color[],
+		string txt, string font)
+	{
+		OSCGraphicsText text;
+
+		text.init(osc_send, "text", "iiiss",
+			  pos, "__text_"+free_id, geo, opacity);
+		for (0 => int i; i < 3; i++)
+			color[i] => osc_send.addInt;
+		txt => osc_send.addString;
+		font => osc_send.addString;
+
+		free_id++;
+		return text;
+	}
+	fun static OSCGraphicsText @
+	newText(int pos, int geo[], int color[], string txt, string font)
+	{
+		return newText(pos, geo, 1., color, txt, font);
+	}
+	fun static OSCGraphicsText @
+	newText(int geo[], int color[], string txt, string font)
+	{
+		return newText(-1, geo, 1., color, txt, font);
+	}
 }
 /* static initialization */
 new OscSend @=> OSCGraphics.osc_send;
