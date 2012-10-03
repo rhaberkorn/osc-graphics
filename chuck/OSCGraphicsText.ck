@@ -54,11 +54,11 @@ public class OSCGraphicsText extends OSCGraphicsLayer {
 		string style;
 
 		if (flags & STYLE_BOLD)
-			style +=> "b";
+			"b" +=> style;
 		if (flags & STYLE_ITALIC)
-			style +=> "i";
+			"i" +=> style;
 		if (flags & STYLE_UNDERLINE)
-			style +=> "u";
+			"u" +=> style;
 
 		osc_send.startMsg("/layer/"+name+"/style", "s");
 		style => osc_send.addString;
