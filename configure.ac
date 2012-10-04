@@ -78,11 +78,10 @@ AC_CHECK_HEADERS([SDL_ttf.h], , [
 	AC_MSG_ERROR([Required libSDL_ttf header missing!])
 ])
 
-AC_CHECK_LIB(SDL_ffmpeg, SDL_ffmpegOpen, , [
-	AC_MSG_ERROR([Required libSDL_ffmpeg missing!])
-])
-AC_CHECK_HEADERS([SDL/SDL_ffmpeg.h libavcodec/avcodec.h], , [
-	AC_MSG_ERROR([Required libSDL_ffmpeg header missing!])
+PKG_CHECK_MODULES(FFMPEG, [libavcodec libavformat libavutil libswscale], [
+	CFLAGS="$CFLAGS $FFMPEG_CFLAGS"
+	CPPFLAGS="$CPPFLAGS $FFMPEG_CFLAGS"
+	LIBS="$LIBS $FFMPEG_LIBS"
 ])
 
 PKG_CHECK_MODULES(LIBVLC, [libvlc >= 1.1.10], [

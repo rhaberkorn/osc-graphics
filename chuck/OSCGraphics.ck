@@ -9,12 +9,18 @@ public class OSCGraphics {
 	}
 
 	fun static string
-	record(string file)
+	record(string file, string codec)
 	{
-		osc_send.startMsg("/recorder/start", "s");
+		osc_send.startMsg("/recorder/start", "ss");
 		file => osc_send.addString;
+		codec => osc_send.addString;
 
 		return file;
+	}
+	fun static string
+	record(string file)
+	{
+		return record(file, "");
 	}
 	fun static string
 	record()
