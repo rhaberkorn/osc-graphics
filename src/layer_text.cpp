@@ -2,7 +2,13 @@
 #include "config.h"
 #endif
 
+#include <string.h>
+#include <stdlib.h>
 #include <math.h>
+
+#ifdef __WIN32__
+#include <windows.h>
+#endif
 
 #include <SDL.h>
 #include <SDL_ttf.h>
@@ -128,6 +134,51 @@ LayerText::color(SDL_Color color)
 
 	alpha(alphav);
 }
+
+#ifdef __WIN32__
+
+void
+LayerText::font(const char *file)
+{
+	free(filev);
+
+	if (PathIsRelative(file)) {
+		/* relative path */
+		const char *systemroot = getenv("SYSTEMROOT");
+
+		filev = (char *)malloc(strlen(systemroot) + 7 + strlen(file) + 1);
+		strcpy(filev, systemroot);
+		strcat(filev, "\\fonts\\");
+		strcat(filev, file);
+	} else {
+		/* absolute path */
+		filev = strdup(file);
+	}
+
+	geo(geov);
+}
+
+#else /* assume POSIX */
+
+void
+LayerText::font(const char *file)
+{
+	free(filev);
+
+	if (*file != '/') {
+		/* relative path */
+		filev = (char *)malloc(sizeof(FONT_PATH) + strlen(file));
+		strcpy(filev, FONT_PATH);
+		strcat(filev, file);
+	} else {
+		/* absolute path */
+		filev = strdup(file);
+	}
+
+	geo(geov);
+}
+
+#endif
 
 void
 LayerText::style_osc(LayerText *obj, lo_arg **argv)

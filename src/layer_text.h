@@ -72,14 +72,7 @@ private:
 		obj->text(&argv[0]->s);
 	}
 
-	inline void
-	font(const char *file)
-	{
-		free(filev);
-		filev = strdup(file);
-
-		geo(geov);
-	}
+	void font(const char *file);
 	OSCServer::MethodHandlerId *font_osc_id;
 	static void
 	font_osc(LayerText *obj, lo_arg **argv)

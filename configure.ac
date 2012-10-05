@@ -111,6 +111,15 @@ AC_C_INLINE
 # Checks for library functions.
 AC_CHECK_FUNCS([atexit strdup])
 
+#
+# Config options
+#
+AC_ARG_WITH(font-path,
+	AS_HELP_STRING([--with-font-path=PATH],
+		       [Specify base directory for selecting TTF fonts [default=/usr/share/fonts/truetype/]]),
+	[FONT_PATH=$withval], [FONT_PATH=/usr/share/fonts/truetype/])
+AC_DEFINE_UNQUOTED([FONT_PATH], ["$FONT_PATH"], [TTF fonts base directory])
+
 CXXFLAGS="$CXXFLAGS $CFLAGS"
 
 AC_CONFIG_FILES([Makefile src/Makefile chuck/Makefile])
