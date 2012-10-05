@@ -54,11 +54,19 @@ public:
 	}					\
 } while (0)
 
-#define SDL_ERROR(FMT, ...) do {					\
-	fprintf(stderr, "%s(%d): " FMT ": %s\n",			\
-		__FILE__, __LINE__, ##__VA_ARGS__, SDL_GetError());	\
+#define WARNING(FMT, ...) do {				\
+	fprintf(stderr, "%s(%d): Warning: " FMT "\n",	\
+		__FILE__, __LINE__, ##__VA_ARGS__);	\
 } while (0)
-	
+
+#define ERROR(FMT, ...) do {				\
+	fprintf(stderr, "%s(%d): Error: " FMT "\n",	\
+		__FILE__, __LINE__, ##__VA_ARGS__);	\
+} while (0)
+
+#define SDL_ERROR(FMT, ...) \
+	ERROR(FMT ": %s", ##__VA_ARGS__, SDL_GetError())
+
 /*
  * Declarations
  */

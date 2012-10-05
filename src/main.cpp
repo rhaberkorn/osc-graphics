@@ -263,7 +263,7 @@ main(int argc, char **argv)
 
 #if DEFAULT_SDL_FLAGS & SDL_HWSURFACE
 	if (!(screen->flags & SDL_HWSURFACE))
-		fprintf(stderr, "Warning: Hardware surfaces not available!\n");
+		WARNING("Hardware surfaces not available!");
 #endif
 
 	SDL_ShowCursor(show_cursor);

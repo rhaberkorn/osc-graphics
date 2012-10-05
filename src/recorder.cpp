@@ -13,12 +13,23 @@ extern "C" {
 #include <libavformat/avformat.h>
 #include <libavcodec/avcodec.h>
 #include <libswscale/swscale.h>
+#include <libavutil/error.h>
 }
 
 #include "osc_graphics.h"
 #include "osc_server.h"
 
 #include "recorder.h"
+
+/*
+ * Macros
+ */
+#define FFMPEG_ERROR(AVERROR, FMT, ...) do {		\
+	char buf[255];					\
+							\
+	av_strerror(AVERROR, buf, sizeof(buf));		\
+	ERROR(FMT ": %s", ##__VA_ARGS__, buf);		\
+} while (0)
 
 extern "C" {
 
@@ -31,7 +42,8 @@ static int stop_handler(const char *path, const char *types,
 
 }
 
-Recorder::Recorder() : Mutex(), ffmpeg(NULL), sws_context(NULL)
+Recorder::Recorder() : Mutex(), ffmpeg(NULL), stream(NULL), sws_context(NULL),
+				encodeFrame(NULL), encodeFrameBuffer(NULL)
 {
 	static bool initialized = false;
 
@@ -80,6 +92,7 @@ void
 Recorder::start(const char *filename, const char *codecname)
 {
 	AVCodec *videoCodec;
+	int err;
 
 	stop();
 
@@ -97,14 +110,15 @@ Recorder::start(const char *filename, const char *codecname)
 	ffmpeg->preload = (int)(0.5 * AV_TIME_BASE);
 	ffmpeg->max_delay = (int)(0.7 * AV_TIME_BASE);
 
-	if (url_fopen(&ffmpeg->pb, filename, URL_WRONLY) < 0) {
-		fprintf(stderr, "Could not open %s!\n", filename);
+	err = url_fopen(&ffmpeg->pb, filename, URL_WRONLY);
+	if (err < 0) {
+		FFMPEG_ERROR(-err, "url_fopen");
 		exit(EXIT_FAILURE);
 	}
 
 	stream = av_new_stream(ffmpeg, 0);
 	if (!stream) {
-		fprintf(stderr, "Could not stream!\n");
+		ERROR("Could not open stream!");
 		exit(EXIT_FAILURE);
 	}
 
@@ -153,7 +167,9 @@ Recorder::start(const char *filename, const char *codecname)
 	else
 		videoCodec = avcodec_find_encoder(ffmpeg->oformat->video_codec);
 	if (!videoCodec) {
-		/* FIXME */
+		ERROR("Could not find encoder %s (%d)!",
+		      codecname ? : "NULL",
+		      ffmpeg->oformat->video_codec);
 		exit(EXIT_FAILURE);
 	}
 	stream->codec->codec_id = videoCodec->id;
@@ -170,7 +186,7 @@ Recorder::start(const char *filename, const char *codecname)
 	}
 
 	if (stream->codec->pix_fmt != screen_fmt) {
-		fprintf(stderr, "Warning: Pixel format conversion necessary!\n");
+		WARNING("Pixel format conversion necessary!");
 
 		/* NOTE: sizes shouldn't differ */
 		sws_context = sws_getContext(screen->w, screen->h, screen_fmt,
@@ -181,8 +197,9 @@ Recorder::start(const char *filename, const char *codecname)
 	}
 
 	/* open the codec */
-	if (avcodec_open(stream->codec, videoCodec) < 0) {
-		/* FIXME */
+	err = avcodec_open(stream->codec, videoCodec);
+	if (err < 0) {
+		FFMPEG_ERROR(-err, "avcodec_open");
 		exit(EXIT_FAILURE);
 	}
 
@@ -203,8 +220,11 @@ Recorder::start(const char *filename, const char *codecname)
 				FF_INPUT_BUFFER_PADDING_SIZE;
 	encodeFrameBuffer = new uint8_t[encodeFrameBufferSize];
 
-	if (av_set_parameters(ffmpeg, 0) < 0)
-		fprintf(stderr, "could not set encoding parameters\n");
+	err = av_set_parameters(ffmpeg, 0);
+	if (err < 0) {
+		FFMPEG_ERROR(-err, "av_set_parameters");
+		exit(EXIT_FAILURE);
+	}
 
 	/* try to write a header */
 	av_write_header(ffmpeg);
@@ -230,29 +250,39 @@ Recorder::stop()
 {
 	lock();
 
-	if (!ffmpeg) {
-		unlock();
-		return;
-	}
+	if (stream && stream->codec)
+		avcodec_flush_buffers(stream->codec);
 
-	avcodec_flush_buffers(stream->codec);
-
-	av_write_trailer(ffmpeg);
+	if (ffmpeg)
+		av_write_trailer(ffmpeg);
 
 	av_free_packet(&pkt);
-	delete encodeFrameBuffer;
+	if (encodeFrameBuffer) {
+		delete encodeFrameBuffer;
+		encodeFrameBuffer = NULL;
+	}
 	if (sws_context) {
 		sws_freeContext(sws_context);
 		sws_context = NULL;
 
-		delete encodeFrame->data[0];
+		if (encodeFrame)
+			delete encodeFrame->data[0];
 	}
-	av_free(encodeFrame);
-	avcodec_close(stream->codec);
-	av_free(stream);
-	url_fclose(ffmpeg->pb);
-	av_free(ffmpeg);
-	ffmpeg = NULL;
+	if (encodeFrame) {
+		av_free(encodeFrame);
+		encodeFrame = NULL;
+	}
+	if (stream) {
+		if (stream->codec)
+			avcodec_close(stream->codec);
+		av_free(stream);
+		stream = NULL;
+	}
+	if (ffmpeg) {
+		url_fclose(ffmpeg->pb);
+		av_free(ffmpeg);
+		ffmpeg = NULL;
+	}
 
 	unlock();
 }

@@ -16,10 +16,8 @@ Layer::CtorInfo LayerImage::ctor_info = {"image", "s" /* file */};
 /*
  * Macros
  */
-#define SDL_IMAGE_ERROR(FMT, ...) do {					\
-	fprintf(stderr, "%s(%d): " FMT ": %s\n",			\
-		__FILE__, __LINE__, ##__VA_ARGS__, IMG_GetError());	\
-} while (0)
+#define SDL_IMAGE_ERROR(FMT, ...) \
+	ERROR(FMT ": %s", ##__VA_ARGS__, IMG_GetError())
 
 LayerImage::LayerImage(const char *name, SDL_Rect geo, float opacity,
 		       const char *file) :

@@ -40,8 +40,7 @@ extern LayerList layers;
 static void
 error_handler(int num, const char *msg, const char *path)
 {
-	fprintf(stderr, "liblo server error %d in path %s: %s\n",
-		num, path, msg);
+	ERROR("liblo server error %d in path %s: %s", num, path, msg);
 }
 
 /* catch any incoming messages and display them. returning 1 means that the
