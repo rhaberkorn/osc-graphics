@@ -1,24 +1,20 @@
 #ifndef __RECORDER_H
 #define __RECORDER_H
 
-#include <SDL.h>
+#include <stdint.h>
 
-extern "C" {
-#include <libavformat/avformat.h>
-#include <libavcodec/avcodec.h>
-#include <libswscale/swscale.h>
-}
+#include <SDL.h>
 
 #include "osc_graphics.h"
 
 class Recorder : Mutex {
-	AVFormatContext	*ffmpeg;
-	AVStream 	*stream;
-	SwsContext	*sws_context;
-	AVFrame		*encodeFrame;
-	int		encodeFrameBufferSize;
-	uint8_t		*encodeFrameBuffer;
-	AVPacket	pkt;
+	struct AVFormatContext	*ffmpeg;
+	struct AVStream 	*stream;
+	struct SwsContext	*sws_context;
+	struct AVFrame		*encodeFrame;
+	int			encodeFrameBufferSize;
+	uint8_t			*encodeFrameBuffer;
+	struct AVPacket		*pkt;
 
 	Uint32 start_time;
 

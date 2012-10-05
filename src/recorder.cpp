@@ -43,7 +43,8 @@ static int stop_handler(const char *path, const char *types,
 }
 
 Recorder::Recorder() : Mutex(), ffmpeg(NULL), stream(NULL), sws_context(NULL),
-				encodeFrame(NULL), encodeFrameBuffer(NULL)
+				encodeFrame(NULL), encodeFrameBuffer(NULL),
+				pkt(NULL)
 {
 	static bool initialized = false;
 
@@ -73,7 +74,7 @@ start_handler(const char *path, const char *types,
 	return 0;
 }
 
-static enum PixelFormat
+static inline enum PixelFormat
 get_pix_fmt(SDL_PixelFormat *format)
 {
 	switch (format->BitsPerPixel) {
@@ -220,6 +221,8 @@ Recorder::start(const char *filename, const char *codecname)
 				FF_INPUT_BUFFER_PADDING_SIZE;
 	encodeFrameBuffer = new uint8_t[encodeFrameBufferSize];
 
+	pkt = new AVPacket;
+
 	err = av_set_parameters(ffmpeg, 0);
 	if (err < 0) {
 		FFMPEG_ERROR(-err, "av_set_parameters");
@@ -256,7 +259,11 @@ Recorder::stop()
 	if (ffmpeg)
 		av_write_trailer(ffmpeg);
 
-	av_free_packet(&pkt);
+	if (pkt) {
+		av_free_packet(pkt);
+		delete pkt;
+		pkt = NULL;
+	}
 	if (encodeFrameBuffer) {
 		delete encodeFrameBuffer;
 		encodeFrameBuffer = NULL;
@@ -321,27 +328,27 @@ Recorder::record(SDL_Surface *surf)
 					    encodeFrameBufferSize, encodeFrame);
 
 	if (out_size > 0) {
-		av_init_packet(&pkt);
+		av_init_packet(pkt);
 
 		/* set correct stream index for this packet */
-		pkt.stream_index = stream->index;
+		pkt->stream_index = stream->index;
 		/* set keyframe flag if needed */
 		if (stream->codec->coded_frame->key_frame)
-			pkt.flags |= PKT_FLAG_KEY;
+			pkt->flags |= PKT_FLAG_KEY;
 		/* write encoded data into packet */
-		pkt.data = encodeFrameBuffer;
+		pkt->data = encodeFrameBuffer;
 		/* set the correct size of this packet */
-		pkt.size = out_size;
+		pkt->size = out_size;
 		/* set the correct duration of this packet */
-		pkt.duration = AV_TIME_BASE / stream->time_base.den;
+		pkt->duration = AV_TIME_BASE / stream->time_base.den;
 
 		/* if needed info is available, write pts for this packet */
 		if (stream->codec->coded_frame->pts != AV_NOPTS_VALUE)
-			pkt.pts = av_rescale_q(stream->codec->coded_frame->pts,
-					       stream->codec->time_base,
-					       stream->time_base);
+			pkt->pts = av_rescale_q(stream->codec->coded_frame->pts,
+					        stream->codec->time_base,
+					        stream->time_base);
 
-		av_write_frame(ffmpeg, &pkt);
+		av_write_frame(ffmpeg, pkt);
 	}
 
 	unlock();
