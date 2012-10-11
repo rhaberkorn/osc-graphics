@@ -28,7 +28,7 @@ extern "C" {
 	char buf[255];					\
 							\
 	av_strerror(AVERROR, buf, sizeof(buf));		\
-	ERROR(FMT ": %s", ##__VA_ARGS__, buf);		\
+	ERROR_MSG(FMT ": %s", ##__VA_ARGS__, buf);	\
 } while (0)
 
 extern "C" {
@@ -127,7 +127,7 @@ Recorder::start(const char *filename, const char *codecname)
 
 	stream = av_new_stream(ffmpeg, 0);
 	if (!stream) {
-		ERROR("Could not open stream!");
+		ERROR_MSG("Could not open stream!");
 		exit(EXIT_FAILURE);
 	}
 
@@ -180,9 +180,9 @@ Recorder::start(const char *filename, const char *codecname)
 	else
 		videoCodec = avcodec_find_encoder(ffmpeg->oformat->video_codec);
 	if (!videoCodec) {
-		ERROR("Could not find encoder %s (%d)!",
-		      codecname ? : "NULL",
-		      ffmpeg->oformat->video_codec);
+		ERROR_MSG("Could not find encoder %s (%d)!",
+			  codecname ? : "NULL",
+			  ffmpeg->oformat->video_codec);
 		exit(EXIT_FAILURE);
 	}
 	stream->codec->codec_id = videoCodec->id;
@@ -199,7 +199,7 @@ Recorder::start(const char *filename, const char *codecname)
 	}
 
 	if (stream->codec->pix_fmt != screen_fmt) {
-		WARNING("Pixel format conversion necessary!");
+		WARNING_MSG("Pixel format conversion necessary!");
 
 		/* NOTE: sizes shouldn't differ */
 		sws_context = sws_getContext(screen->w, screen->h, screen_fmt,

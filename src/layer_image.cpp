@@ -17,7 +17,7 @@ Layer::CtorInfo LayerImage::ctor_info = {"image", "s" /* file */};
  * Macros
  */
 #define SDL_IMAGE_ERROR(FMT, ...) \
-	ERROR(FMT ": %s", ##__VA_ARGS__, IMG_GetError())
+	ERROR_MSG(FMT ": %s", ##__VA_ARGS__, IMG_GetError())
 
 LayerImage::LayerImage(const char *name, SDL_Rect geo, float opacity,
 		       const char *file) :
