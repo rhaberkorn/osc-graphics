@@ -108,14 +108,22 @@ Recorder::start(const char *filename, const char *codecname)
 	if (!ffmpeg->oformat)
 		ffmpeg->oformat = av_guess_format("dvd", NULL, NULL);
 
-	ffmpeg->preload = (int)(0.5 * AV_TIME_BASE);
+	//ffmpeg->preload = (int)(0.5 * AV_TIME_BASE);
 	ffmpeg->max_delay = (int)(0.7 * AV_TIME_BASE);
 
+#if LIBAVFORMAT_VERSION_MAJOR < 54
 	err = url_fopen(&ffmpeg->pb, filename, URL_WRONLY);
 	if (err < 0) {
 		FFMPEG_ERROR(-err, "url_fopen");
 		exit(EXIT_FAILURE);
 	}
+#else
+	err = avio_open(&ffmpeg->pb, filename, AVIO_FLAG_WRITE);
+	if (err < 0) {
+		FFMPEG_ERROR(-err, "avio_open");
+		exit(EXIT_FAILURE);
+	}
+#endif
 
 	stream = av_new_stream(ffmpeg, 0);
 	if (!stream) {
@@ -125,9 +133,13 @@ Recorder::start(const char *filename, const char *codecname)
 
 	stream->codec = avcodec_alloc_context();
 
+#if LIBAVCODEC_VERSION_MAJOR < 54
 	avcodec_get_context_defaults2(stream->codec, CODEC_TYPE_VIDEO);
-
 	stream->codec->codec_type = CODEC_TYPE_VIDEO;
+#else
+	avcodec_get_context_defaults2(stream->codec, AVMEDIA_TYPE_VIDEO);
+	stream->codec->codec_type = AVMEDIA_TYPE_VIDEO;
+#endif
 
 	stream->codec->bit_rate = 6000000;
 
@@ -223,14 +235,18 @@ Recorder::start(const char *filename, const char *codecname)
 
 	pkt = new AVPacket;
 
-	err = av_set_parameters(ffmpeg, 0);
+	/* try to write a header */
+#if LIBAVFORMAT_VERSION_MAJOR < 54
+	err = av_set_parameters(ffmpeg, NULL);
 	if (err < 0) {
 		FFMPEG_ERROR(-err, "av_set_parameters");
 		exit(EXIT_FAILURE);
 	}
 
-	/* try to write a header */
 	av_write_header(ffmpeg);
+#else
+	avformat_write_header(ffmpeg, NULL);
+#endif
 
 	start_time = SDL_GetTicks();
 
@@ -286,7 +302,11 @@ Recorder::stop()
 		stream = NULL;
 	}
 	if (ffmpeg) {
+#if LIBAVFORMAT_VERSION_MAJOR < 54
 		url_fclose(ffmpeg->pb);
+#else
+		avio_close(ffmpeg->pb);
+#endif
 		av_free(ffmpeg);
 		ffmpeg = NULL;
 	}
@@ -334,7 +354,7 @@ Recorder::record(SDL_Surface *surf)
 		pkt->stream_index = stream->index;
 		/* set keyframe flag if needed */
 		if (stream->codec->coded_frame->key_frame)
-			pkt->flags |= PKT_FLAG_KEY;
+			pkt->flags |= AV_PKT_FLAG_KEY;
 		/* write encoded data into packet */
 		pkt->data = encodeFrameBuffer;
 		/* set the correct size of this packet */
