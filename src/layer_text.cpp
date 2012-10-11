@@ -8,6 +8,7 @@
 
 #ifdef __WIN32__
 #include <windows.h>
+#include <Shlwapi.h>
 #endif
 
 #include <SDL.h>

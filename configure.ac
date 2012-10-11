@@ -78,6 +78,10 @@ AC_CHECK_HEADERS([SDL_ttf.h], , [
 	AC_MSG_ERROR([Required libSDL_ttf header missing!])
 ])
 
+case $build_os in
+*mingw*) LIBS="$LIBS -lShlwapi"
+esac
+
 PKG_CHECK_MODULES(FFMPEG, [libavcodec libavformat libavutil libswscale], [
 	CFLAGS="$CFLAGS $FFMPEG_CFLAGS"
 	CPPFLAGS="$CPPFLAGS $FFMPEG_CFLAGS"
